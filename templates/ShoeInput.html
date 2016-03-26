@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  {% include 'header.html' %}  
+  
+  <body>
+  
+      <form method="POST" action="" accept-charset="UTF-8">
+    
+        <nav class="navbar navbar-inverse navbar-fixed-top">
+          <div class="container">
+            {% include 'navbar.html' %}
+          </div>
+        </nav>
+        
+        <div class="container">
+            
+            <h1 class="text-center">{{ title }}</h1>
+            
+            {% for line in intro %}
+                <h4 class="text-center">{{ line }}</h4>
+            {% endfor %}
+            <br>
+
+            <table class="table table-striped"> 
+                <thead>
+                    <tr>
+                        {% for col in thead %}
+                            <th>{{col}}</th> 
+                        {% endfor %}                     
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in tbody %}
+                        <tr>
+                            {% for col in row %}
+                                <td>{{col}}</td>    
+                            {% endfor %}
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            </div>
+  
+        <div class="container">
+            <div class="starter-left">
+                <p>Add a new pair of shoes</p>
+                <form>
+                
+                    <div class="input-group">
+                        <span class="input-group-addon">Short Name (Unique)</span>
+                        <input type="text" name = "shortName" class="form-control" id="formGroupExampleInput" value= {{ val_shortName }}>
+                    </div>
+                    
+                    <div class="input-group">
+                        <span class="input-group-addon">Long Name</span>
+                        <input type="text" name = "longName" class="form-control" id="formGroupExampleInput" value= {{ val_shortName }}>
+                    </div>
+                             
+                    <p class="bottom-three">       
+                        <div class="container">
+                          <input type="submit" class="btn btn-info" value="Add Shoes">
+                        </div>   
+                    </p>                     
+                    
+                </form>
+            </div><!-- /starter-template -->
+        </div><!-- /.container -->
+        
+    {% include 'footer.html' %}
+</body>
+</html>
+    

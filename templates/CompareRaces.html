@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+  {% include 'header.html' %}  
+  
+    <style>
+      .bottom-three {
+         margin-bottom: 3cm;
+      }
+    </style>
+    
+    <style>
+      .bottom-one {
+         margin-bottom: 1cm;
+      }
+    </style>
+
+<body>
+    <form method="POST" action="" accept-charset="UTF-8">
+        <nav class="navbar navbar-inverse navbar-fixed-top">
+          <div class="container"> 
+            {% include 'navbar.html' %}  
+          </div><!-- Container -->
+        </nav>
+
+        <div class="container">
+
+            <div class="starter-template">
+                <h1>Compare the same athletes in two races</h1>
+                <p class="lead">Select races then press Submit</p>
+   
+                <p class="bottom-one">
+                    <div class="input-group">
+                        <span class="input-group-addon">Race1:</span>
+                        <select name='race1' class="selectpicker show-menu-arrow form-control" data-live-search="true">
+                            {% for dd in races %}
+                                <option value="{{dd}}">{{dd}}</option>
+                            {% endfor %}
+                        </select>                   
+                    </div> 
+                </p> 
+                
+                <p class="bottom-one">
+                    <div class="input-group">
+                        <span class="input-group-addon">Race2:</span>
+                              <select name='race2' class="selectpicker show-menu-arrow form-control" data-live-search="true">
+                                {% for dd in races %}
+                                    <option value="{{dd}}">{{dd}}</option>
+                                {% endfor %}
+                                </select>                   
+                    </div> 
+                </p> 
+                
+                <label>Minimum Time</label>
+                <input name="min_time" class="form-control" value="0:00:00">
+                
+                <label>Maximum Time</label>
+                <input name="max_time" class="form-control" value="4:00:00">
+                
+                <label>Maximum Percent Difference Between Times</label>
+                <input name="percent" class="form-control" value="10">            
+
+                <p class="bottom-three">       
+                    <div class="container">
+                      <input type="submit" class="btn btn-info" value="Submit">
+                    </div>   
+                </p>
+                                
+        </div><!-- /starter-template -->
+        </div><!-- /.container -->
+    </form>
+    {% include 'footer.html' %}
+  </body>
+</html>

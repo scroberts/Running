@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+  {% include 'header.html' %}
+  <body>
+    <div class="container">
+        <nav class="navbar navbar-inverse navbar-fixed-top">
+            {% include 'navbar.html' %}
+        </nav>
+    
+        <h1 class="text-center">{{ title }}</h1>
+    
+        {% for line in intro %}
+            <h4 class="text-center">{{ line }}</h4>
+        {% endfor %}
+        <br>
+    
+        <h4 class="text-center">{{summary}}</h4>
+
+        <table class="table table-striped"> 
+            <thead>
+                <tr>
+                    {% for col in thead %}
+                        <th>{{col}}</th> 
+                    {% endfor %}                     
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in tbody %}
+                    <tr>
+                        {% for col in row %}
+                            <td>{{col}}</td>    
+                        {% endfor %}
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+    </div><!-- /.container -->
+  
+    {% include 'footer.html' %}  
+  </body>
+</html>

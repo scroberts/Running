@@ -1,0 +1,62 @@
+<html>
+<link rel="stylesheet" media="screen" href = "{{ url_for('static', filename='bootstrap.min.css') }}">
+<meta name="viewport" content = "width=device-width, initial-scale=1.0">
+<head>
+</head>
+
+<form method="POST" action="" accept-charset="UTF-8">
+    <div class="btn-group" role="group" aria-label="...">
+      <button type="submit" class="btn btn-default" name="choice1" value="Leftmost">Leftmost</button>
+      {% for b in buttonname %}
+        <button type="submit" class="btn btn-default" name="choice1" value="{{b}}">{{b}}</button>   
+      {% endfor %}    
+      <input type="hidden" name="choice1" value={{request.form['choice1']}} />
+    </div>
+    
+    <div class="input-group">
+      <span class="input-group-addon" id="basic-addon1">@</span>
+      <input type="text" class="form-control" name="username" placeholder="{{ username }}" aria-describedby="basic-addon1">
+      <input type="hidden" name="username" value={{request.form['username']}} />
+    </div>
+    
+    <!-- Single button -->
+    <div class="btn-group">
+      <button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+        Action <span class="caret"></span>
+      </button>
+      <ul class="dropdown-menu">
+        <li><a href="#">Action</a></li>
+        <li><a href="#">Another action</a></li>
+        <li><a href="#">Something else here</a></li>
+        <li role="separator" class="divider"></li>
+        <li><a href="#">Separated link</a></li>
+      </ul>
+    </div>
+</form>
+
+<div class="alert alert-danger" role="alert">
+  <span class="glyphicon glyphicon-exclamation-sign" aria-hidden="true"></span>
+  <span class="sr-only">Error:</span>
+  Enter a valid email address
+</div>
+
+
+    <body>
+        <h3>{{ title }}</h3>
+        {% for p in paragraph %}
+        <p>{{ p }}</p>
+        {% endfor %}
+    
+        {% if pageType == 'about' %}
+        <p>Contact box thing is here</p>
+        {% endif %}
+    </body>
+    
+    
+</body>
+
+<script src = "//ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
+<script type = "text/javascript" src = "/static/bootstrap.min.js" ></script>
+
+</html>
+    

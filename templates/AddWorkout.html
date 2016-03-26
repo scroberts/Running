@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  {% include 'header.html' %}
+  
+  <body>
+      <form method="POST" action="" accept-charset="UTF-8">
+
+        <div class="container">
+          {% include 'navbar.html' %}
+        </div>
+  
+        <div class="container">
+            <div class="starter-left">
+                <form>
+                                
+                    <div class="input-group">
+                        <span class="input-group-addon">Date</span>
+                        <input type="date" name = "date" class="form-control" id="formGroupExampleInput" value= "{{ val_date }}">
+                    </div>
+              
+                    <div class="input-group">
+                        <span class="input-group-addon">Location</span>
+                        <input type="text" name = "location" class="form-control" placeholder = "Location" value = "{{ val_location }}">
+                    </div>
+                    
+                    <div class="input-group">
+                        <span class="input-group-addon">Workout Objective</span>
+                        <input type="text" name = "objective" class="form-control" placeholder = "Workout Objective" value = "{{ val_objective }}">
+                    </div>
+                    
+                    <div class="input-group">
+                        <div class="form-group">
+                            <span class="input-group-addon">Notes About Workout </span>
+                            <textarea type="text" name = "notes" class="form-control" rows="3" style="min-width: 100%" placeholder = "notes...">{{ val_notes }}</textarea>
+                        </div>
+                    </div>
+                    
+                    <div class="input-group">
+                        <span class="input-group-addon">Distance (km)</span>
+                        <input type="text" name = "distance" class="form-control" placeholder = "distance" value = {{ val_distance }}>
+                    </div>
+                    
+                    <div class="input-group">
+                        <span class="input-group-addon">Time at Recovery Pace (h:mm:ss)</span>
+                        <input type="text" name = "recovery" class="form-control" placeholder="Time @ Recovery" value = {{ val_recovery }}>
+                    </div>
+                    
+                    <div class="input-group">
+                        <span class="input-group-addon">Time at Easy Pace (h:mm:ss)</span>
+                        <input type="text" name = "easy" class="form-control" placeholder="Time @ Easy" value = {{ val_easy }}>
+                    </div>
+                    
+                    <div class="input-group">
+                        <span class="input-group-addon">Time at Threshold Pace (h:mm:ss)</span>
+                        <input type="text" name = "threshold" class="form-control" placeholder="Time @ Threshold" value = {{ val_threshold }}>
+                    </div>
+
+                    <div class="input-group">
+                        <span class="input-group-addon">Time at Interval Pace (h:mm:ss)</span>
+                        <input type="text" name = "interval" class="form-control" placeholder="Time @ Interval" value = {{ val_interval }}>
+                    </div>  
+                                        
+                    <div class="input-group">
+                        <span class="input-group-addon">Time at Repetition Pace (h:mm:ss)</span>
+                        <input type="text" name = "repetition" class="form-control" placeholder="Time @ Repetition" value = {{ val_repetition }}>
+                    </div>  
+                         
+                    <p class="bottom-one">
+                        <div class="input-group">
+                            <span class="input-group-addon">Shoes Used</span>
+                            <select name='shoes' class="selectpicker show-menu-arrow form-control" data-live-search="true">
+                                {% for dd in shoe_list %}
+                                    <option value="{{dd}}">{{dd}}</option>
+                                {% endfor %}
+                            </select>                   
+                        </div> 
+                    </p> 
+                    
+                    <p class="bottom-three">       
+                        <div class="container">
+                          <input type="submit" class="btn btn-info" value="Submit">
+                        </div>   
+                    </p>                     
+                    
+                </form>
+            </div><!-- /starter-template -->
+        </div><!-- /.container -->
+            
+    {% include 'footer.html' %}
+
+</body>
+</html>
+    

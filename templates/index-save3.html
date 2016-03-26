@@ -1,0 +1,34 @@
+<html>
+<link rel="stylesheet" media="screen" href = "{{ url_for('static', filename='bootstrap.min.css') }}">
+<meta name="viewport" content = "width=device-width, initial-scale=1.0">
+<head>
+</head>
+
+<form method="POST" action="" accept-charset="UTF-8">
+    <div class="btn-group" role="group" aria-label="...">
+      <button type="submit" class="btn btn-default" name="choice1" value="A">Left</button>
+      <button type="submit" class="btn btn-default" name="choice1" value="B">Middle</button>
+      <button type="submit" class="btn btn-default" name="choice1" value="C">Right</button>
+      <input type="hidden" name="choice1" value={{request.form['choice1']}} />
+    </div>
+</form>
+
+    <body>
+        <h3>{{ title }}</h3>
+        {% for p in paragraph %}
+        <p>{{ p }}</p>
+        {% endfor %}
+    
+        {% if pageType == 'about' %}
+        <p>Contact box thing is here</p>
+        {% endif %}
+    </body>
+    
+    
+</body>
+
+<script src = "//ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
+<script type = "text/javascript" src = "/static/bootstrap.min.js" ></script>
+
+</html>
+    
