@@ -116,17 +116,64 @@ def ChangeWorkout(id):
                 val_threshold =  val_threshold, val_interval = val_interval, 
                 val_repetition = val_repetition, val_shoe = val_shoe, shoe_list = shoe_list))
 
-
+@app.route('/ListAthletes', methods = ["GET", "POST"])
+def ListAthletes():
+    conn = get_db()
+    cur = conn.cursor()
+    title = 'Listing of Athletes'
+    [intro, thead, tbody, summary] = sql.get_athletes(conn, cur, Letter = 'C')
+    return render_template("ListInfo.html", title = title, intro = intro, thead = thead, tbody = tbody, summary = summary)
+    
 @app.route('/ListHealth', methods = ["GET", "POST"])
 def ListHealth():
 
     conn = get_db()
     cur = conn.cursor()
     
-    [intro, thead, tbody, summary] = sql.get_health(cur)
+    [intro, thead, tbody, summary] = sql.get_health_list(cur)
     title = 'Listing of Health'
     intro = ''
     return render_template("ListInfo.html", title = title, intro = intro, thead = thead, tbody = tbody, summary = summary)
+
+
+@app.route('/ChangeHealth/<id>', methods = ["GET", "POST"])
+def ChangeHealth(id):
+    conn = get_db()
+    cur = conn.cursor()
+    
+    health = sql.get_health(cur, id)
+    
+    val_date = health[1]
+    val_weight = health[2]
+    val_waist = health[3]
+    val_waist_bb = health[4]
+    val_chest = health[5]
+    val_hips = health[6]
+    val_HR = health[7]
+    val_notes = health[8]
+    
+    if request.method == "POST":
+        date = request.form['date'] 
+        weight = request.form['weight'] 
+        waist = request.form['waist']    
+        waist_bb = request.form['waist_bb']
+        chest = request.form['chest'] 
+        hips = request.form['hips'] 
+        HR = request.form['HR']
+        notes = request.form['notes'] 
+        
+        sql.change_health(conn, id, cur, date, weight, waist, waist_bb, chest, hips, notes, HR)
+        
+        [intro, thead, tbody, summary] = sql.get_health_list(cur)
+        title = 'Listing of Health'
+        intro = ''
+        return render_template("ListInfo.html", title = title, intro = intro, thead = thead, tbody = tbody, summary = summary)
+
+    return(render_template("AddHealth.html", val_date = val_date,
+                val_weight = val_weight, val_waist = val_waist,
+                val_waist_bb =  val_waist_bb, val_chest = val_chest, 
+                val_hips = val_hips, val_notes = val_notes, val_HR = val_HR))        
+
 
 @app.route('/AddHealth', methods = ["GET", "POST"])
 def AddHealth():
@@ -139,6 +186,7 @@ def AddHealth():
     val_chest = '0.0'
     val_hips = '0.0'
     val_notes = 'notes...'
+    val_HR = 60
     
     if request.method == "POST":
         print('entered Health POST request')
@@ -148,10 +196,11 @@ def AddHealth():
         waist_bb = request.form['waist_bb']
         chest = request.form['chest'] 
         hips = request.form['hips'] 
+        HR = request.form['HR']
         notes = request.form['notes'] 
-        sql.add_health(conn, cur, date, weight, waist, waist_bb, chest, hips, notes)
+        sql.add_health(conn, cur, date, weight, waist, waist_bb, chest, hips, notes, HR)
         
-        [intro, thead, tbody, summary] = sql.get_health(cur)
+        [intro, thead, tbody, summary] = sql.get_health_list(cur)
         title = 'Listing of Health'
         intro = ''
         return render_template("ListInfo.html", title = title, intro = intro, thead = thead, tbody = tbody, summary = summary)
@@ -160,7 +209,7 @@ def AddHealth():
     return(render_template("AddHealth.html", val_date = val_date,
                 val_weight = val_weight, val_waist = val_waist,
                 val_waist_bb =  val_waist_bb, val_chest = val_chest, 
-                val_hips = val_hips, val_notes = val_notes))
+                val_hips = val_hips, val_notes = val_notes, val_HR = val_HR))
 
 
 @app.route('/AddWorkout', methods = ["GET", "POST"])

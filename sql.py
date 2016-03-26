@@ -325,22 +325,36 @@ def load_csv_health(conn, cur, csvfilename):
                 exit(1)        
     conn.commit()
 
-def add_health(conn, cur, date, weight, smallWaist, bbWaist, hip, chest, notes):
+def add_health(conn, cur, date, weight, smallWaist, bbWaist, hip, chest, notes, HR):
     try:
-        cur.execute('INSERT INTO Health (date, weight, smallWaist, bbWaist, hip, chest, notes) VALUES ( ?,?,?,?,?,?,? )', ( date, weight, smallWaist, bbWaist, hip, chest, notes)) 
+        cur.execute('INSERT INTO Health (date, weight, smallWaist, bbWaist, hip, chest, notes, HR) VALUES ( ?,?,?,?,?,?,?,? )', ( date, weight, smallWaist, bbWaist, hip, chest, notes, HR)) 
     except:
         print('Error - unable to enter heath, date = ', date)   
     conn.commit() 
+
+def change_health(conn, id, cur, date, weight, smallWaist, bbWaist, hip, chest, notes, HR):
+    try:
+        cur.execute('UPDATE Health SET date=?, weight=?, smallWaist=?, bbWaist=?, hip=?, chest=?, notes=?, HR=? WHERE id = ?', ( date, weight, smallWaist, bbWaist, hip, chest, notes, HR, id)) 
+    except:
+        print('Error - unable to update heath record, id = ', id)   
+    conn.commit() 
+
+def get_health(cur, id):
+    cur.execute('SELECT id, date, weight, smallWaist, bbWaist, hip, chest, HR, notes FROM Health WHERE id = ?', (id,))
+    health = list(cur.fetchone())
+    return(health)
     
-def get_health(cur):
-    cur.execute('SELECT id, date, weight, smallWaist, bbWaist, hip, chest, notes FROM Health ORDER BY date DESC')
+def get_health_list(cur):
+    cur.execute('SELECT id, date, weight, smallWaist, bbWaist, hip, chest, HR, notes FROM Health ORDER BY date DESC')
 
     intro = ['Listing of Health']
-    thead = ['ID', 'Date', 'Weight', 'Waist', 'Waist at BB', 'Hip', 'Chest', 'Notes']
+    thead = ['ID', 'Date', 'Weight', 'Waist', 'Waist at BB', 'Hip', 'Chest', 'HR', 'Notes']
     tbody = []
     for row in cur:
+        row = list(row)
+        row[0] = Markup('<strong><a href=http://localhost:8080/ChangeHealth/%s>%s</a></strong>' % (row[0],row[0]))
         tbody.append(row)
-        print(row)
+#         print(row)
     summary = 'Total of %d Entries' % len(tbody) 
     return( [intro,thead,tbody, summary] )    
         
@@ -460,7 +474,7 @@ def get_workout(cur, id):
                 WHERE Log.id = ?', ( id , ))
                  
     workout = list(cur.fetchone())    
-    print(workout)
+#     print(workout)
     return(workout)
     
 
@@ -850,14 +864,27 @@ def get_log_month_stats(conn, cur):
     
     return([intro, thead, tbody, summary])  
     
-def sql_running(conn, cur):
-    print(get_log_stats(conn, cur))
-    print('\n\n\n')    
-#     get_log_sums_for_all_weeks(conn, cur)
-#     print('\n\n\n')
-#     get_log_sums_over_weeks(conn, cur, 0, 1)     
-#     print('\n\n\n')
-#     get_log_sums_for_all_months(conn, cur)
+def get_athletes(conn, cur, **kwargs):
+    letter = kwargs.get('Letter')
+    if letter is not None:
+        cur.execute('SELECT id, name, age_group, club, hometown FROM Athletes WHERE name LIKE ? ORDER by name LIMIT 10 OFFSET 0',("%s%%" % letter,))
+    else:
+        cur.execute('SELECT id, name, age_group, club, hometown FROM Athletes ORDER by name')
+    tbody = []
+    for recs in cur:
+        id = recs[0]
+        name = recs[1]
+        age_group = recs[2]
+        club = recs[3]
+        hometown = recs[4]
+        id_tag = Markup('<strong><a href=http://localhost:8080/user/%s>%d</a></strong>' % (name.replace(' ','%20'),id))
+        tbody.append([id_tag, name, age_group, club, hometown])
+       
+    intro = ''
+    thead = ['id', 'name', 'age_group', 'club', 'hometown']
+    summary = 'Total of %d Entries' % len(tbody) 
+    return([intro, thead, tbody, summary])   
+        
 
 def noday(datestr):
     [year, mw, day] = parse_datestr(datestr)
