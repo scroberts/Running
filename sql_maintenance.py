@@ -96,6 +96,22 @@ def rebuild_database(conn, cur):
 #     load_result(conn, cur, 'VictoriaMarathon_2014.csv', 'Victoria Marathon', '2014-10-12', 42.195, 0, 0, 0)
 #     load_result(conn, cur, 'tc10k_2014.csv', 'TC 10K', '2014-04-27', 10.0, 0, 0, 0)
 
+
+def update_workout_calculated_data(conn, cur):
+    cur.execute('SELECT id FROM Log')
+    curlist = cur.fetchall()
+    
+    for row in curlist:  
+#         print(row[0])
+        id = row[0]
+        
+        cur.execute('SELECT date, location, objective, notes, dist, recovery, easy, \
+             threshold, interval, repetition, shoeID FROM Log \
+            WHERE Log.id = ?', ( id , ))
+        [date, location, objective, notes, distance, recovery, easy, threshold, interval, repetition, shoe_id] = list(cur.fetchone()) 
+        
+        sql.change_workout(id, conn, cur, date, location, objective, notes, distance, recovery, easy, threshold, interval, repetition, shoe_id)
+
 def update_racetimes_time(conn,cur):
     cur.execute('SELECT id, str_time FROM Racetimes')
     curlist = cur.fetchall()
@@ -161,7 +177,8 @@ def update_secs(conn,cur):
 def main_sql():
 
     [conn, cur] = sql.load_database('/Users/sroberts/Dropbox/TMT/Python/Running/db/races.sqlite')    
-    recalc_racetimes_pace(conn,cur)
+#     recalc_racetimes_pace(conn,cur)
+    update_workout_calculated_data(conn, cur)
         
     cur.close()
 

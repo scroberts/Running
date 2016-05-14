@@ -391,9 +391,7 @@ def get_shoes(cur):
     summary = 'Total of %d Entries' % len(tbody)
     return( [intro,thead,tbody,summary] )
  
-def change_workout(id, conn, cur, date, location, objective, notes, distance, recovery, easy, threshold, interval, repetition, shoe_id):
-    print('Changing Workout ID: ',id)
-    
+def get_workout_calculated_data(date, distance, recovery, easy, threshold, interval, repetition):
     secs_recovery = secs(recovery)
     secs_easy = secs(easy)
     secs_threshold = secs(threshold)
@@ -421,6 +419,13 @@ def change_workout(id, conn, cur, date, location, objective, notes, distance, re
     week = '%s' % isodate[1]
     day = '%s' % isodate[2]
     isodatestr = year + '-' + week.zfill(2) + '-' + day
+    return([isodatestr,total_time_str, total_time, pace, secs_pace, secs_recovery, secs_easy, secs_threshold, secs_interval, secs_repetition, p8020, jd_int])
+
+ 
+def change_workout(id, conn, cur, date, location, objective, notes, distance, recovery, easy, threshold, interval, repetition, shoe_id):
+    print('Changing Workout ID: ',id)
+    
+    [isodatestr, total_time_str, total_time, pace, secs_pace, secs_recovery, secs_easy, secs_threshold, secs_interval, secs_repetition, p8020, jd_int] = get_workout_calculated_data(date, distance, recovery, easy, threshold, interval, repetition)
     
     try:
         cur.execute('UPDATE Log SET date=?, location=?, objective=?, notes=?, dist=?, \
@@ -432,58 +437,25 @@ def change_workout(id, conn, cur, date, location, objective, notes, distance, re
                     total_time, pace, secs_pace, recovery, secs_recovery, easy, secs_easy, 
                     threshold, secs_threshold, interval, secs_interval, repetition, 
                     secs_repetition, p8020, jd_int, shoe_id, isodatestr, id ))
+        conn.commit() 
 
     except:
         print('Error - log entry couldn\'t be changed')   
-    conn.commit() 
+
         
 def add_workout(conn, cur, date, location, objective, notes, distance, recovery, easy, threshold, interval, repetition, shoe_id):
     print('Adding Workout for Date: ',date)
     
-    secs_recovery = secs(recovery)
-    secs_easy = secs(easy)
-    secs_threshold = secs(threshold)
-    secs_interval = secs(interval)
-    secs_repetition = secs(repetition)
+    [isodatestr,total_time_str, total_time, pace, secs_pace, secs_recovery, secs_easy, secs_threshold, secs_interval, secs_repetition, p8020, jd_int] = get_workout_calculated_data(date, distance, recovery, easy, threshold, interval, repetition)
     
-    print('Time Easy:', secs_easy)
-    
-    total_time = secs_recovery + secs_easy + secs_threshold + secs_interval + secs_repetition
-    total_time_str = str_time(total_time)
-    secs_pace = total_time/float(distance)
-    pace = str_time(secs_pace)
-
-    
-    # Calculate Percent 80/20
-    p8020 = 100.0 * (secs_recovery + secs_easy)/total_time
-    
-    # Calculate Jack Daniels Intensity
-    recovery_int = secs_recovery/60.0 * 0.15
-    easy_int = secs_easy/60.0 * 0.2
-    tempo_int = secs_threshold/60.0 * 0.6
-    interval_int = secs_interval/60.0 * 1.0
-    repetition_int = secs_repetition/60.0 * 1.5
-    jd_int = recovery_int + easy_int + tempo_int + interval_int + repetition_int
-    isodate = datetime.datetime.strptime(date,'%Y-%m-%d').isocalendar()
-    year = '%s' % isodate[0]
-    week = '%s' % isodate[1]
-    day = '%s' % isodate[2]
-    isodatestr = year + '-' + week.zfill(2) + '-' + day
-    
-    print('Jack Daniels Intensity = ',jd_int)
-    print('Pace = ', pace)
-    print('SQL AddWorkout: recovery = %s, easy = %s, threshold = %s, interval = %s, repetition = %s' % (recovery, easy, threshold, interval, repetition))
+#     print('Jack Daniels Intensity = ',jd_int)
+#     print('Pace = ', pace)
+#     print('SQL AddWorkout: recovery = %s, easy = %s, threshold = %s, interval = %s, repetition = %s' % (recovery, easy, threshold, interval, repetition))
 
     cur.execute('INSERT INTO Log (date, location, objective, notes, dist, time, time_secs, pace, pace_secs, recovery, recovery_secs, easy, easy_secs, threshold, threshold_secs, interval, interval_secs, repetition, repetition_secs, p8020, jd_int, shoeID, isodate) VALUES \
                 ( ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,? )', 
         ( date, location, objective, notes, float(distance), total_time_str, total_time, pace, secs_pace, recovery, secs_recovery, easy, secs_easy, threshold, secs_threshold, interval, secs_interval, repetition, secs_repetition, p8020, jd_int, shoe_id, isodatestr )) 
 
-#     try:
-#         cur.execute('INSERT INTO Log (date, location, objective, notes, dist, time, total_time, pace, pace_secs, recovery, recovery_secs, easy, easy_secs, threshold, threshold_secs, interval, interval_secs, repetition, repetition_secs, p8020, jd_int, shoeID, isodate) VALUES \
-#                     ( ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,? )', 
-#             ( date, location, objective, notes, float(distance), total_time_str, total_time, pace, secs_pace, recovery, secs_recovery, easy, secs_easy, threshold, secs_threshold, interval, secs_interval, repetition, secs_repetition, p8020, jd_int, shoe_id, isodatestr )) 
-#     except:
-#         print('Error - log entry couldn\'t be made')   
     conn.commit() 
     
 def get_workout(cur, id):
