@@ -82,6 +82,7 @@ def rebuild_database(conn, cur):
 #     load_result(conn, cur, 'OakBayHalf_2012.csv', 'Oak Bay Half Marathon','2012-05-13', 21.0975, 0, 25, 111)
 #     load_result(conn, cur, 'tc10k_2015.csv', 'TC 10K', '2015-04-26', 10.0, 15, 30, 51)
 #     load_result(conn, cur, 'Sooke10k_2015.csv', 'Sooke 10k','2015-04-19', 10.0, 0, 0, 0)
+#     load_result(conn, cur, 'Sooke10k_2016.csv', 'Sooke 10k','2016-04-03', 10.0, 0, 0, 0)
 #     load_result(conn, cur, 'ComoxHalf_2015.csv', 'Comox Valley Half Marathon', '2015-03-22', 21.0975, 0, 0, 0)
 #     load_result(conn, cur, 'Bazan5k_2015.csv', 'Bazan Bay 5k', '2015-03-08', 5.0, 4, 19, 25)
 #     load_result(conn, cur, 'Hatley8k_2015.csv', 'Hatley Castle 8k','2015-02-22', 8.0, 16, 101, 146)
@@ -109,6 +110,19 @@ def update_racetimes_pace(conn,cur):
     
     for row in curlist:  
         cur.execute('UPDATE Racetimes SET pace = ? WHERE id = ?',(sql.scrub_pace(row[1]),row[0]))
+    conn.commit()
+    
+def recalc_racetimes_pace(conn,cur):
+    cur.execute('SELECT RaceTimes.id, RaceTimes.sec_time, Events.id, Events.dist FROM RaceTimes \
+                JOIN Races on RaceTimes.raceID = Races.id \
+                JOIN Events on Races.eventID = Events.id')
+    curlist = cur.fetchall()
+    
+    for row in curlist:  
+        pace = sql.str_time(row[1]/row[3])
+        pace = sql.timestr2pacestr(pace)
+        print(row[0], row[1], row[2], row[3], pace)
+        cur.execute('UPDATE Racetimes SET pace = ? WHERE id = ?',(pace,row[0]))
     conn.commit()
     
 def update_isodate(conn,cur):
@@ -146,8 +160,8 @@ def update_secs(conn,cur):
 
 def main_sql():
 
-    [conn, cur] = sql.load_database('/Users/sroberts/Dropbox/TMT/Python/SQL/races.sqlite')    
-    update_racetimes_pace(conn,cur)
+    [conn, cur] = sql.load_database('/Users/sroberts/Dropbox/TMT/Python/Running/db/races.sqlite')    
+    recalc_racetimes_pace(conn,cur)
         
     cur.close()
 

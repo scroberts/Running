@@ -37,6 +37,13 @@ def scrub_timestr(timestr):
     secs = '%s' % int(m.group(3))
     return(hours + ':' + mins.zfill(2) + ':' + secs.zfill(2))
     
+def timestr2pacestr(timestr):
+    m = re.search('(^\d*):(\d*):(\d*)', timestr)
+    hours = '%s' % int(m.group(1))
+    mins = '%s' % int(m.group(2))
+    secs = '%s' % int(m.group(3))
+    return(mins + ':' + secs.zfill(2))
+    
 def scrub_pace(pacestr):
     m = re.search('(^\d*):(\d*)', pacestr)
     mins = '%s' % int(m.group(1))
@@ -395,6 +402,7 @@ def change_workout(id, conn, cur, date, location, objective, notes, distance, re
     
     total_time = secs_recovery + secs_easy + secs_threshold + secs_interval + secs_repetition
     total_time_str = str_time(total_time)
+    secs_pace = total_time/float(distance)
     pace = str_time(total_time/float(distance))
     
     # Calculate Percent 80/20
@@ -408,12 +416,23 @@ def change_workout(id, conn, cur, date, location, objective, notes, distance, re
     repetition_int = secs_repetition/60.0 * 1.5
     jd_int = recovery_int + easy_int + tempo_int + interval_int + repetition_int
     
+    isodate = datetime.datetime.strptime(date,'%Y-%m-%d').isocalendar()
+    year = '%s' % isodate[0]
+    week = '%s' % isodate[1]
+    day = '%s' % isodate[2]
+    isodatestr = year + '-' + week.zfill(2) + '-' + day
+    
     try:
         cur.execute('UPDATE Log SET date=?, location=?, objective=?, notes=?, dist=?, \
-                    time = ?, pace = ?, recovery = ?, easy = ?, threshold = ?, \
-                    interval = ?, repetition = ?, p8020 = ?, jd_int = ?, shoeID = ? WHERE id = ?',
+                    time = ?, time_secs = ?, pace = ?, pace_secs = ?, recovery = ?, \
+                    recovery_secs = ?, easy = ?, easy_secs = ?, threshold = ?, \
+                    threshold_secs = ?, interval = ?, interval_secs = ?, repetition = ?, \
+                    repetition_secs = ?, p8020 = ?, jd_int = ?, shoeID = ?, isodate = ? WHERE id = ?',
                     (date, location, objective, notes, float(distance), total_time_str, 
-                    pace, recovery, easy, threshold, interval, repetition, p8020, jd_int, shoe_id, id ))
+                    total_time, pace, secs_pace, recovery, secs_recovery, easy, secs_easy, 
+                    threshold, secs_threshold, interval, secs_interval, repetition, 
+                    secs_repetition, p8020, jd_int, shoe_id, isodatestr, id ))
+
     except:
         print('Error - log entry couldn\'t be changed')   
     conn.commit() 
@@ -548,6 +567,25 @@ def add_event(conn, cur, racename, dist, min_elev, max_elev, gain_elev):
     except:
         print('Event already exists in table')   
     conn.commit()     
+
+def test_load_result(conn, cur, csvfilename, eventname, date, dist, min_elev, max_elev, gain_elev):
+    print('Test loading results for ',eventname)
+    
+    cur.execute('SELECT id FROM Events WHERE (eventname = ?) LIMIT 1', ( eventname , ))
+    eventID = cur.fetchone()[0]
+    
+    print('Found eventID:', eventID, ' for eventname') 
+        
+    cur.execute('SELECT id FROM Races WHERE eventID = ? AND date = ? LIMIT 1', ( eventID , date ))
+    raceID = cur.fetchone()[0]
+    
+    print('Found raceID:', raceID, ' for eventID') 
+  
+    with open(csvfilename) as csvfile:
+        reader = csv.DictReader(csvfile)
+        for row in reader:
+            print(row['name'], row['age_group'], row['club'], row['hometown'], scrub_timestr(row['time']), secs(row['time']), row['pace'])  
+        
 
 def load_result(conn, cur, csvfilename, eventname, date, dist, min_elev, max_elev, gain_elev):
     print('Loading results for ',eventname)
@@ -790,17 +828,20 @@ def get_log_sums_over_weeks(cur, week_ago_nearest, week_ago_furthest):
     # Get list of isodates
     cur.execute('SELECT noday(isodate) FROM Log GROUP BY noday(isodate) ORDER by noday(isodate) DESC')
     curlist = cur.fetchall()
+    print(curlist)
     
     # get the weekdays for the last day of nearest and the first day of furthest week 
     startdate = curlist[week_ago_furthest][0]
     enddate = curlist[week_ago_nearest][0]
     startdatematch = curlist[week_ago_furthest][0] + '-1'
     enddatematch = curlist[week_ago_nearest][0] + '-7'
+    print(startdatematch, enddatematch)
 
     cur.execute('SELECT sum(dist), sum(jd_int), sum(time_secs), sum(recovery_secs), sum(easy_secs), \
                 sum(threshold_secs), sum(interval_secs), sum(repetition_secs) \
                 FROM Log WHERE isodate BETWEEN ? and ?', (startdatematch, enddatematch))
     vals = cur.fetchone()
+    print(vals) 
     
     total_secs = vals[2]
     recovery_secs = vals[3]
@@ -817,9 +858,24 @@ def get_log_sums_over_weeks(cur, week_ago_nearest, week_ago_furthest):
     repetition_str = '%s' % timedelta(hours=0,minutes=0,seconds=int(vals[7]/weeks))
     
     zones = zones_str(recovery_str, easy_str, threshold_str, interval_str, repetition_str)
+    print(zones)
     
     return([dist, td_str, zones, intensity, p8020])
     
+def get_log_52weeks(conn, cur):
+
+    conn.create_function("NODAY", 1, noday)
+    
+    intro = ['Weekly Stats']
+    thead = ['Description','Dist.','Time','Time in Zones','Int.','%80/20']
+    summary = '' 
+    
+    tbody = []
+    for week in range (1,53):
+        tbody.append(['%d weeks ago' % week] + get_log_sums_over_weeks(cur, week, week))
+    
+    return([intro, thead, tbody, summary])  
+      
 def get_log_week_stats(conn, cur):
 
     conn.create_function("NODAY", 1, noday)
@@ -839,9 +895,25 @@ def get_log_week_stats(conn, cur):
     tbody.append(['Ave: Last 8 weeks'] + get_log_sums_over_weeks(cur, 1, 8))     
     tbody.append(['Ave: Last 16 weeks'] + get_log_sums_over_weeks(cur, 1, 16)) 
     tbody.append(['Ave: Last 32 weeks'] + get_log_sums_over_weeks(cur, 1, 32))  
+    tbody.append(['Ave: Last 52 weeks'] + get_log_sums_over_weeks(cur, 1, 52)) 
     
     return([intro, thead, tbody, summary])    
     
+def get_log_12months(conn, cur):
+
+    conn.create_function("NODAY", 1, noday)
+    
+    intro = ['Monthly Stats']
+    thead = ['Description','Dist.','Time','Time in Zones','Int.','%80/20']
+    summary = '' 
+    
+    tbody = []
+    for month in range (1,13):
+        tbody.append(['%d months ago' % month] + get_log_sums_over_months(cur, month, month))
+    
+    return([intro, thead, tbody, summary])  
+    
+
 def get_log_month_stats(conn, cur):
     # returns this month, last month, then averages of 1,2,4,8,12 months with latest month being last month
     
@@ -857,8 +929,11 @@ def get_log_month_stats(conn, cur):
     tbody.append(['Two Months Ago'] + get_log_sums_over_months(cur, 2, 2))
     tbody.append(['Three Months Ago'] + get_log_sums_over_months(cur, 3, 3))
     tbody.append(['Four Months Ago'] + get_log_sums_over_months(cur, 4, 4))
-    tbody.append(['Ave: Last 2 months'] + get_log_sums_over_months(cur, 1, 2))    
-    tbody.append(['Ave: Last 4 months'] + get_log_sums_over_months(cur, 1, 4))      
+    tbody.append(['Ave: Last 2 months'] + get_log_sums_over_months(cur, 1, 2))  
+    tbody.append(['Ave: Last 3 months'] + get_log_sums_over_months(cur, 1, 3))        
+    tbody.append(['Ave: Last 4 months'] + get_log_sums_over_months(cur, 1, 4))  
+    tbody.append(['Ave: Last 5 months'] + get_log_sums_over_months(cur, 1, 5)) 
+    tbody.append(['Ave: Last 6 months'] + get_log_sums_over_months(cur, 1, 6))             
     tbody.append(['Ave: Last 8 months'] + get_log_sums_over_months(cur, 1, 8))     
     tbody.append(['Ave: Last 12 months'] + get_log_sums_over_months(cur, 1, 12)) 
     
@@ -894,15 +969,32 @@ def nodaymatch(datestr):
     [year, mw, day] = parse_datestr(datestr)
     return(year + '-' + mw + '-%')              
 
+def norm_race_elev(timestr, elev, dist):
+    # timestr in "0:00:00" format
+    # elev in m
+    # dist in km
+    timesec = secs(timestr)
+    avegrade = elev/(dist*1000)
+    percent_increase = 1.5 * avegrade
+    adjusted_time = (1 - percent_increase) * timesec
+    return(str_time(adjusted_time))
+
+def norm_race_dist(timestr, orig_dist, norm_dist):
+    timesec = secs(timestr)
+    timesec = timesec * (norm_dist/orig_dist) ** 1.06
+    return(str_time(timesec))
+    
 def main_sql():
     ######## MAIN FUNCTION ############
 
     [conn, cur] = load_database('/Users/sroberts/Dropbox/TMT/Python/Running/db/races.sqlite')
         
+    load_result(conn, cur, '/Users/sroberts/Dropbox/TMT/Python/Running/csv/tc10k_2016utf8.csv', 'TC 10K', '2016-04-24', 10.0, 0, 0, 0)
     conn.create_function("NODAY", 1, noday)
     conn.create_function("NODAYMATCH", 1, nodaymatch)
         
-    sql_running(conn, cur)
+    print(norm_race_dist("0:41:15",10,21.0975))
+    print(norm_race_elev("0:51:03",97,12))
         
     cur.close()
 

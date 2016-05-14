@@ -29,6 +29,16 @@ def close_connection(exception):
 def Homepage():
     return render_template("homepage.html")
 
+@app.route('/Workout52Weeks', methods = ["GET", "POST"])
+def Workout52Weeks():
+    conn = get_db()
+    cur = conn.cursor()
+    
+    [intro, thead, tbody, summary] = sql.get_log_52weeks(conn, cur)
+    title = 'Workout Statistics'
+
+    return render_template("ListInfo.html", title = title, intro = intro, thead = thead, tbody = tbody, summary = summary)
+
 @app.route('/WorkoutWeekStats', methods = ["GET", "POST"])
 def WorkoutWeekStats():
     conn = get_db()
@@ -38,6 +48,17 @@ def WorkoutWeekStats():
     title = 'Workout Statistics'
 
     return render_template("ListInfo.html", title = title, intro = intro, thead = thead, tbody = tbody, summary = summary)
+
+@app.route('/Workout12Months', methods = ["GET", "POST"])
+def Workout12Months():
+    conn = get_db()
+    cur = conn.cursor()
+    
+    [intro, thead, tbody, summary] = sql.get_log_12months(conn, cur)
+    title = 'Workout Statistics'
+
+    return render_template("ListInfo.html", title = title, intro = intro, thead = thead, tbody = tbody, summary = summary)
+
 
 @app.route('/WorkoutMonthStats', methods = ["GET", "POST"])
 def WorkoutMonthStats():

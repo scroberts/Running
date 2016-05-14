@@ -15,8 +15,9 @@ import sqlite3
 import sql
 
 import matplotlib.pyplot as plt
+from matplotlib.dates import DayLocator, HourLocator, DateFormatter, drange
 
-DATABASE = '/Users/sroberts/Dropbox/TMT/Python/SQL/races.sqlite'
+DATABASE = '/Users/sroberts/Dropbox/TMT/Python/Running/db/races.sqlite'
 
 app = Flask(__name__)
 
@@ -43,11 +44,11 @@ def iso_to_gregorian(iso_year, iso_week, iso_day):
     
 def greg_YMDstr_to_datetime(greg_str):
     # Converts string in YYYY-MM-DD format into datetime object
-    return(datetime.datetime.strptime(greg_str,'%Y-%m-%d')
+    return(datetime.datetime.strptime(greg_str,'%Y-%m-%d'))
 
 def iso_YWDstr_to_datetime(iso_str):
     # Converts string in YYYY-WXX-D format into a datetime object
-    return(datetime.datetime.strptime(greg_str,'%Y-W%W-%w')
+    return(datetime.datetime.strptime(greg_str,'%Y-W%W-%w'))
     
 def read_spreadsheet( sheet ):
 
@@ -161,12 +162,12 @@ def print_periods( id, periods ):
     x = []
     y = []       
     for k,v in periods.items():
-#         x.append(k)
         x.append(v['end_date'])
         y.append(v['kms'])
-#         plt.plot(x, y, 'ro')
-#         plt.bar(x, y, 0.35, color='r')
-        plt.plot(x, y)
+        
+    dates = drange(x)
+    plt.bar(dates, y, width = 1, align='center')
+#     plt.plot(x, y)
     plt.show()
 
 
@@ -362,12 +363,12 @@ def get_shoe_mileage(shoes, myRun):
   
 # Main Program  
 def main():
-    path = r'/Users/sroberts/Google Drive/Exercise/ExerciseLog.xlsx'  
-    # Open the spreadsheet
-    wb=openpyxl.load_workbook( path, data_only=True )
-
-    # read the running log by sheet name
-    sheet = wb.get_sheet_by_name('Running Log')
+#     path = r'/Users/sroberts/Google Drive/Exercise/ExerciseLog.xlsx'  
+#     # Open the spreadsheet
+#     wb=openpyxl.load_workbook( path, data_only=True )
+# 
+#     # read the running log by sheet name
+#     sheet = wb.get_sheet_by_name('Running Log')
 
     # Read in the spreadsheet to a dictionary structure
     # myRun = read_spreadsheet( sheet )
