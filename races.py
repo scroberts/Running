@@ -168,8 +168,8 @@ def ChangeHealth(id):
     val_weight = health[2]
     val_waist = health[3]
     val_waist_bb = health[4]
-    val_chest = health[5]
-    val_hips = health[6]
+    val_hips = health[5]
+    val_chest = health[6]
     val_HR = health[7]
     val_notes = health[8]
     
@@ -178,12 +178,12 @@ def ChangeHealth(id):
         weight = request.form['weight'] 
         waist = request.form['waist']    
         waist_bb = request.form['waist_bb']
-        chest = request.form['chest'] 
         hips = request.form['hips'] 
+        chest = request.form['chest'] 
         HR = request.form['HR']
         notes = request.form['notes'] 
         
-        sql.change_health(conn, id, cur, date, weight, waist, waist_bb, chest, hips, notes, HR)
+        sql.change_health(conn, id, cur, date, weight, waist, waist_bb, hips, chest, notes, HR)
         
         [intro, thead, tbody, summary] = sql.get_health_list(cur)
         title = 'Listing of Health'
@@ -219,7 +219,7 @@ def AddHealth():
         hips = request.form['hips'] 
         HR = request.form['HR']
         notes = request.form['notes'] 
-        sql.add_health(conn, cur, date, weight, waist, waist_bb, chest, hips, notes, HR)
+        sql.add_health(conn, cur, date, weight, waist, waist_bb, hips, chest, notes, HR)
         
         [intro, thead, tbody, summary] = sql.get_health_list(cur)
         title = 'Listing of Health'

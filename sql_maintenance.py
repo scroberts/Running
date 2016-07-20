@@ -178,7 +178,7 @@ def main_sql():
 
     [conn, cur] = sql.load_database('/Users/sroberts/Dropbox/TMT/Python/Running/db/races.sqlite')    
 #     recalc_racetimes_pace(conn,cur)
-    update_workout_calculated_data(conn, cur)
+#     update_workout_calculated_data(conn, cur)
         
     cur.close()
 

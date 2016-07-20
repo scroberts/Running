@@ -548,10 +548,10 @@ def test_load_result(conn, cur, csvfilename, eventname, date, dist, min_elev, ma
     
     print('Found eventID:', eventID, ' for eventname') 
         
-    cur.execute('SELECT id FROM Races WHERE eventID = ? AND date = ? LIMIT 1', ( eventID , date ))
-    raceID = cur.fetchone()[0]
-    
-    print('Found raceID:', raceID, ' for eventID') 
+#     cur.execute('SELECT id FROM Races WHERE eventID = ? AND date = ? LIMIT 1', ( eventID , date ))
+#     raceID = cur.fetchone()[0]
+#     
+#     print('Found raceID:', raceID, ' for eventID') 
   
     with open(csvfilename) as csvfile:
         reader = csv.DictReader(csvfile)
@@ -961,13 +961,13 @@ def main_sql():
 
     [conn, cur] = load_database('/Users/sroberts/Dropbox/TMT/Python/Running/db/races.sqlite')
         
-    load_result(conn, cur, '/Users/sroberts/Dropbox/TMT/Python/Running/csv/tc10k_2016utf8.csv', 'TC 10K', '2016-04-24', 10.0, 0, 0, 0)
-    conn.create_function("NODAY", 1, noday)
-    conn.create_function("NODAYMATCH", 1, nodaymatch)
-        
-    print(norm_race_dist("0:41:15",10,21.0975))
-    print(norm_race_elev("0:51:03",97,12))
-        
+    load_result(conn, cur, '/Users/sroberts/Dropbox/TMT/Python/Running/csv/OakBayHalf_2016.csv', 'Oak Bay Half Marathon', '2016-05-29', 21.0975, 0, 25, 111)
+#     conn.create_function("NODAY", 1, noday)
+#     conn.create_function("NODAYMATCH", 1, nodaymatch)
+#         
+#     print(norm_race_dist("0:41:15",10,21.0975))
+#     print(norm_race_elev("0:51:03",97,12))
+#         
     cur.close()
 
 if __name__ == "__main__":
