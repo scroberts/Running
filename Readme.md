@@ -3,17 +3,24 @@ This page provides the framework for the development and publishing of
 Software ICDs, specifically using model files and GitHub.
 
 # References
-[ICD Database User Manual](https://docushare.tmt.org/docushare/dsweb/Get/Document-50189/OSW%20TN018-ICDDatabaseUserManual_REL01.pdf)  
+1. [ICD Database User Manual](https://docushare.tmt.org/docushare/dsweb/Get/Document-50189/OSW%20TN018-ICDDatabaseUserManual_REL01.pdf)  
+
+2. [TMT Configuration Control Plan](https://docushare.tmt.org/docushare/dsweb/View/Document-601/TMTConfigControlPlan.docx)
 
 # Workflow for Framework Documents:
-1. Teams work together to develop ICD Framework documents, which are
-Word documents that describe the basic agreements on the ICD. These are
-used to guide the detailed APIs and ICD documents that are developed
-using Model Files and the ICD Database.
+The Framework document is the first step in the development of software
+ICDs. The Teams participating in the ICD work together to develop ICD
+Framework documents. These are Word documents that describe the basic
+agreements on the ICD. Framework documents are used to guide the
+detailed APIs and ICD documents that are developed using Model Files and
+the ICD Database.  
 
-2. ICD Framework Documents are published to Docushare following the
+These documents are stored on Docushare and the
+release process follows the TMT Configuration Control Plan (Ref 2).
+
+ICD Framework Documents are published to Docushare following the
 standard systems engineering process for releasing ICD documents
-(Reference Document Approval Matrix and Configuration Control Plan).
+(Reference Document Approval Matrix and Configuration Control Plan (Ref 2).
 
 # Workflow for detailed APIs and ICDs using the ICD Database (Assume
 # Framework document is published already)
@@ -61,9 +68,12 @@ Framework document form the full ICD.
 
 ## To Do (Alan):
 1. Alan looking at publishing ICDs.  File in repository in json format
-that records the history, comments of ICD releases. 
+that records the history, comments of ICD releases.  (short term)
 
 2. Remove ingest
 script and have that work through the database directly.  Need ability
 to update from Root (all or selected modules?) or selected latest from a
-submodule that may not yet have been committed to the Root.
+submodule that may not yet have been committed to the Root. (longer term)
+
+## To Do (Kim and Scott):
+Run through a complete process to publish an ICD with tools following completion of Item 1 from Alan)
