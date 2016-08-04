@@ -8,19 +8,19 @@ Software ICDs, specifically using model files and GitHub.
 3. [TMT ICD Template](https://docushare.tmt.org/docushare/dsweb/Get/Document-1858/ICD%20Template_REL07%20FINAL.docx)
 
 # Workflow for ICD Framework Documents:
-The ICD Framework Document is the first step in the development of software
-ICDs. 
-The two ICD subsystem teams participating in the interface work together to develop the ICD
-Framework document. The Framework Document is a Word document following the TMT ICD Template [Ref 3]. This document describes the basic high level
-agreements on the interface. Framework documents guide the
-detailed APIs and ICD documents that are developed using Model Files and
-the ICD Database.  
-ICD Framework Documents are stored on Docushare and the
-release process follows the TMT Configuration Control Plan (Ref 2).
-They are published to Docushare following the
-standard systems engineering process for releasing ICD documents
-(See Configuration Control Plan [Ref 2]).
-The combination of the Framework document and the ICD published from the ICD Database forms the software ICD between two subsystems.
+The ICD Framework Document is the first step in the development of
+software ICDs. The two ICD subsystem teams participating in the
+interface work together to develop the ICD Framework document. The
+Framework Document is a Word document following the TMT ICD Template
+[Ref 3]. This document describes the basic high level agreements on the
+interface. Framework documents guide the detailed APIs and ICD documents
+that are developed using Model Files and the ICD Database. ICD Framework
+Documents are stored on Docushare and the release process follows the
+TMT Configuration Control Plan (Ref 2). They are published to Docushare
+following the standard systems engineering process for releasing ICD
+documents (See Configuration Control Plan [Ref 2]). The combination of
+the Framework document and the ICD published from the ICD Database forms
+the software ICD between two subsystems.
 
 # Workflow for detailed APIs and ICDs using the ICD Database 
 This step assumes that the framework document is already published.
@@ -44,18 +44,14 @@ Repository.  Several APIs will often be considered together for approval
 needed to reach agreement. During this process, each team updates their
 API’s by pushing to their GitHub submodule, for example
 “IRIS-Model-Files”.  No approval is required for this step.
-
 2. When ready, the teams request Systems Engineering to release new
 version(s) of API(s) and ICD(s).
-
 3. SE Reviews the request, consults with stakeholders and
 agrees/disagrees to publishing the ICD.
-
-4. Once approved, TMT Systems Engineering will update the Root Repository to
-include the changes made in each submodule repository.  One this is
-complete the updated APIs and ICDs can be loaded into the ICD Database
-using the ingest.sh script.
-
+4. Once approved, TMT Systems Engineering will update the Root
+Repository to include the changes made in each submodule repository. 
+One this is complete the updated APIs and ICDs can be loaded into the
+ICD Database using the ingest.sh script.
 5. TMT Systems Engineering publishes the ICD(s) related to updated Root
 Repository APIs in .pdf format on Docushare.  This and the accompanying
 Framework document form the full ICD.
@@ -76,4 +72,5 @@ to update from Root (all or selected modules?) or selected latest from a
 submodule that may not yet have been committed to the Root. (longer term)
 
 ## To Do (Kim and Scott):
-Run through a complete process to publish an ICD with tools following completion of Item 1 from Alan)
+Run through a complete process to publish an ICD with tools following
+completion of Item 1 from Alan)
