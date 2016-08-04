@@ -51,7 +51,7 @@ version(s) of API(s) and ICD(s).
 3. SE Reviews the request, consults with stakeholders and
 agrees/disagrees to publishing the ICD.
 
-4. Once approved, TMT systems engineering updates the Root Repository to
+4. Once approved, TMT Systems Engineering will update the Root Repository to
 include the changes made in each submodule repository.  One this is
 complete the updated APIs and ICDs can be loaded into the ICD Database
 using the ingest.sh script.
