@@ -4,7 +4,6 @@ Software ICDs, specifically using model files and GitHub.
 
 # References
 1. [ICD Database User Manual](https://docushare.tmt.org/docushare/dsweb/Get/Document-50189/OSW%20TN018-ICDDatabaseUserManual_REL01.pdf)  
-
 2. [TMT Configuration Control Plan](https://docushare.tmt.org/docushare/dsweb/View/Document-601/TMTConfigControlPlan.docx)
 
 # Workflow for Framework Documents:
@@ -22,8 +21,9 @@ ICD Framework Documents are published to Docushare following the
 standard systems engineering process for releasing ICD documents
 (Reference Document Approval Matrix and Configuration Control Plan (Ref 2).
 
-# Workflow for detailed APIs and ICDs using the ICD Database (Assume
-# Framework document is published already)
+# Workflow for detailed APIs and ICDs using the ICD Database 
+
+This step assumes that the framework document is already published.
 
 # Overview of GitHub organization:
 The GitHub model file repository (See
