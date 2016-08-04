@@ -5,26 +5,23 @@ Software ICDs, specifically using model files and GitHub.
 # References
 1. [ICD Database User Manual](https://docushare.tmt.org/docushare/dsweb/Get/Document-50189/OSW%20TN018-ICDDatabaseUserManual_REL01.pdf)  
 2. [TMT Configuration Control Plan](https://docushare.tmt.org/docushare/dsweb/View/Document-601/TMTConfigControlPlan.docx)
+3. [TMT ICD Template](https://docushare.tmt.org/docushare/dsweb/Get/Document-1858/ICD%20Template_REL07%20FINAL.docx)
 
 # Workflow for ICD Framework Documents:
 The ICD Framework Document is the first step in the development of software
 ICDs. 
-
-The two ICD subsystem teams work together to develop ICD
-Framework documents. These are Word documents that describe the basic high level
+The two ICD subsystem teams participating in the ICD work together to develop the ICD
+Framework document. The Framework Document is a Word document following the TMT ICD Template [Ref 3] that describe the basic high level
 agreements on the interface. Framework documents guide the
 detailed APIs and ICD documents that are developed using Model Files and
 the ICD Database.  
-
 These documents are stored on Docushare and the
 release process follows the TMT Configuration Control Plan (Ref 2).
-
 ICD Framework Documents are published to Docushare following the
 standard systems engineering process for releasing ICD documents
 (See Configuration Control Plan [Ref 2]).
 
 # Workflow for detailed APIs and ICDs using the ICD Database 
-
 This step assumes that the framework document is already published.
 
 # Overview of GitHub organization:
