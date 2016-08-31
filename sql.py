@@ -4,8 +4,8 @@ import re
 import csv
 import sqlite3
 import time
-import datetime
-from datetime import timedelta
+#import datetime
+from datetime import datetime, timedelta
 import numpy as np
 from flask import Markup
 
@@ -65,7 +65,7 @@ def get_running_dict(conn, cur):
         myRun[idx] = {}       
 #         print('date = ', row[1])
         myRun[idx]['id'] = row[0]
-        myRun[idx]['date'] = datetime.datetime.strptime(row[1],'%Y-%m-%d')
+        myRun[idx]['date'] = datetime.strptime(row[1],'%Y-%m-%d')
         myRun[idx]['weekday'] = 'Monday'
         myRun[idx]['description'] = row[2]
         myRun[idx]['objective'] = row[3]
@@ -313,11 +313,11 @@ def write_ss(conn, cur, xlfile):
 def secs(str_time):
     # Returns number of seconds in time string formatted as HH:MM:SS
     x=time.strptime(str_time,'%H:%M:%S')
-    return(datetime.timedelta(hours=x.tm_hour,minutes=x.tm_min,seconds=x.tm_sec).total_seconds())
+    return(timedelta(hours=x.tm_hour,minutes=x.tm_min,seconds=x.tm_sec).total_seconds())
 
 def str_time(secs):
     # Returns time string for a number of seconds
-    return(str(datetime.timedelta(seconds=round(secs))))
+    return(str(timedelta(seconds=round(secs))))
 
 def load_csv_health(conn, cur, csvfilename):
     with open(csvfilename) as csvfile:
@@ -414,7 +414,7 @@ def get_workout_calculated_data(date, distance, recovery, easy, threshold, inter
     repetition_int = secs_repetition/60.0 * 1.5
     jd_int = recovery_int + easy_int + tempo_int + interval_int + repetition_int
     
-    isodate = datetime.datetime.strptime(date,'%Y-%m-%d').isocalendar()
+    isodate = datetime.strptime(date,'%Y-%m-%d').isocalendar()
     year = '%s' % isodate[0]
     week = '%s' % isodate[1]
     day = '%s' % isodate[2]
