@@ -18,6 +18,10 @@ from openpyxl.styles import Font, Style, Alignment
 from openpyxl.styles.colors import BLUE
 from openpyxl import load_workbook
 
+import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
+import matplotlib.ticker as ticker
+
 # Set Excel Styles
 # Excel hyperlink style is calibri 11, underline blue
 font_url_style = Font(color = BLUE, underline = 'single')
@@ -363,7 +367,53 @@ def get_health_list(cur):
         tbody.append(row)
 #         print(row)
     summary = 'Total of %d Entries' % len(tbody) 
-    return( [intro,thead,tbody, summary] )    
+    return( [intro,thead,tbody, summary] )  
+    
+# def get_recent_weight(cur):
+    
+    
+def get_weight_report(cur):
+    cur.execute('SELECT date FROM Health WHERE (weight > 0) ORDER BY date DESC')
+    dates = []
+    # create a list of dates as ascii strings
+    for row in cur:
+        dates.append(row[0])
+    # find datetime format dates that span a week centered on date from list above
+    datelist = []
+    weightlist = []
+    for strdate in dates:
+        # get date span of week
+        date = datetime.strptime(strdate,'%Y-%m-%d')
+        datelist.append(date)
+        date_3_days_ago = date - timedelta(days=3)
+        date_3_days_future =  date + timedelta(days=3)
+        #print(date.strftime('%Y-%m-%d'), date_3_days_ago.strftime('%Y-%m-%d'), date_3_days_future.strftime('%Y-%m-%d'))
+        start = date_3_days_ago.strftime('%Y-%m-%d')
+        end = date_3_days_future.strftime('%Y-%m-%d')
+        print(start, end )
+        try:
+            cur.execute('SELECT AVG(weight) FROM Health WHERE (date between ? AND ?) AND weight > 0.0', (start, end))
+#             for row in cur:
+#                 print(strdate,' : %.2f' % row[0])
+#             weightlist.append(row[0])
+            weightlist.append(cur.fetchone())
+        except:
+            pass
+#             print('No entries')
+            
+    # now print
+
+    plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
+    #plt.gca().xaxis.set_major_locator(mdates.DayLocator())
+    plt.gca().xaxis.set_major_locator(ticker.MultipleLocator(90))
+#     plt.plot([datetime.strptime('2016-10-01','%Y-%m-%d'),datetime.strptime('2016-10-02','%Y-%m-%d'),datetime.strptime('2016-10-03','%Y-%m-%d')],[1,2,30])
+    plt.plot(datelist,weightlist)
+    plt.gcf().autofmt_xdate()      
+    plt.savefig('static/weight.png')
+    # plt.show() 
+    plt.clf()
+
+
         
 def add_shoes(conn, cur, shortName, longName):
     print('Adding new shoes', shortName, longName)
@@ -587,10 +637,10 @@ def load_result(conn, cur, csvfilename, eventname, date, dist, min_elev, max_ele
         reader = csv.DictReader(csvfile)
         for row in reader:
             cur.execute('SELECT id FROM Athletes WHERE (name = ? AND hometown = ?) LIMIT 1', ( row['name'], row['hometown'], ))
-            AthleteId = cur.fetchone()[0]
-#             print(racename, row['time'], row['pace'] )
+            AthleteID = cur.fetchone()[0]
+            print(AthleteID, raceID, row['time'], row['pace'] )
             try:
-                cur.execute('INSERT INTO RaceTimes (athleteID, raceID, str_time, sec_time, pace) VALUES ( ?, ?, ?, ?, ?)', ( AthleteId, raceID, scrub_timestr(row['time']), secs(row['time']), row['pace'] ) )    
+                cur.execute('INSERT INTO RaceTimes (athleteID, raceID, str_time, sec_time, pace) VALUES ( ?, ?, ?, ?, ?)', ( AthleteID, raceID, scrub_timestr(row['time']), secs(row['time']), row['pace'] ) )    
             except:
                 print('Error adding to RaceTimes')
                 exit(1)
@@ -640,10 +690,21 @@ def compare_races(cur, eventname1, date1, eventname2, date2, racetime1, racetime
         JOIN Events ON Races.eventID = Events.id AND Events.eventname = ? AND Races.date = ?', \
         (eventname1, date1, ))
         
+    cur.execute('SELECT * FROM race1')
+    rows = cur.fetchall()
+    print('\nrace1\n')
+    for row in rows:
+        print('%s\t%s\t%s\t%s' % row)        
+        
     cur.execute('CREATE TABLE race2 AS SELECT athleteID, str_time, sec_time, pace FROM RaceTimes \
         JOIN Races ON Races.id = RaceTimes.raceID \
         JOIN Events ON Races.eventID = Events.id AND Events.eventname = ? AND Races.date = ?', \
         (eventname2, date2, ))
+
+    cur.execute('SELECT * FROM race2')        
+    print('\nrace2\n')
+    for row in rows:
+        print('%s\t%s\t%s\t%s' % row) 
         
 #     cur.execute('CREATE TABLE race2 AS SELECT athleteID, str_time, sec_time, pace FROM RaceTimes \
 #         JOIN Races WHERE Races.eventID = Events.id AND Events.eventname = ? AND Races.date = ? AND Races.id = RaceTimes.raceID', \
@@ -664,11 +725,11 @@ def compare_races(cur, eventname1, date1, eventname2, date2, racetime1, racetime
     cur.execute('SELECT * FROM race_compare WHERE abs(percent_diff) < ?', (max_percent,))
     rows = cur.fetchall()
     diffs = []
-    print('%s\t%20s\t%s\t%s\t%s\t%s\t%s\t%s' % ('ID','Name','Time 1','Secs','Time 2','Secs','Diff','%'))
+#     print('%s\t%20s\t%s\t%s\t%s\t%s\t%s\t%s' % ('ID','Name','Time 1','Secs','Time 2','Secs','Diff','%'))
 
     tbody = []
     for row in rows:
-        print('%d\t%20s\t%s\t%d\t%s\t%d\t%5d\t%.4f' % row)
+#         print('%d\t%20s\t%s\t%d\t%s\t%d\t%5d\t%.4f' % row)
         percent = '%.2f' % (row[7]*100,)
         name_tag = Markup('<strong><a href=http://localhost:8080/user/%s>%s</a></strong>' % (row[1].replace(' ','%20'), row[1]))
         tbody.append([row[0], name_tag, row[2], row[3], row[4], row[5], row[6], percent])
@@ -682,9 +743,9 @@ def compare_races(cur, eventname1, date1, eventname2, date2, racetime1, racetime
     
     thead = ['ID','Name','Time 1','Secs','Time 2','Secs','Diff','%']
     
-    cur.execute('DROP TABLE IF EXISTS race1 ')
-    cur.execute('DROP TABLE IF EXISTS race2 ')
-    cur.execute('DROP TABLE IF EXISTS race_compare  ')
+#     cur.execute('DROP TABLE IF EXISTS race1 ')
+#     cur.execute('DROP TABLE IF EXISTS race2 ')
+#     cur.execute('DROP TABLE IF EXISTS race_compare  ')
     
     return([intro, thead, tbody, summary])
           
@@ -960,14 +1021,27 @@ def main_sql():
     ######## MAIN FUNCTION ############
 
     [conn, cur] = load_database('/Users/sroberts/Dropbox/TMT/Python/Running/db/races.sqlite')
+    
+#     get_weight_report(cur)
+
+    load_result(conn, cur, '/Users/sroberts/Dropbox/TMT/Python/Running/csv/Cobble10k_2017.csv', 'Cobble Hill 10k', '2017-01-22', 10.0, 62, 123, 75)
+    load_result(conn, cur, '/Users/sroberts/Dropbox/TMT/Python/Running/csv/Pioneer8k_2017.csv', 'Pioneer 8k','2017-01-8', 8.0, 67, 70, 22)
+       
+#     load_result(conn, cur, '/Users/sroberts/Dropbox/TMT/Python/Running/csv/CowichanHalf_2016.csv', 'Cowichan Half Marathon', '2016-10-23', 21.0975, 0, 0, 85)
+       
         
-    load_result(conn, cur, '/Users/sroberts/Dropbox/TMT/Python/Running/csv/OakBayHalf_2016.csv', 'Oak Bay Half Marathon', '2016-05-29', 21.0975, 0, 25, 111)
+#     load_result(conn, cur, '/Users/sroberts/Dropbox/TMT/Python/Running/csv/CowichanHalf_2016.csv', 'Cowichan Half Marathon', '2016-10-23', 21.0975, 0, 0, 85)
+#     add_event(conn, cur, 'Victoria 8k', 8.0, 0, 0, 0)
+#     load_result(conn, cur, '/Users/sroberts/Dropbox/TMT/Python/Running/csv/Victoria_8k_2016.csv', 'Victoria 8k', '2016-10-09', 8.0, 0, 0, 0)
+#     load_result(conn, cur, '/Users/sroberts/Dropbox/TMT/Python/Running/csv/VictoriaHalf_2016.csv', 'Victoria Half Marathon', '2016-10-09', 21.0975, 14, 36, 128)
+
 #     conn.create_function("NODAY", 1, noday)
 #     conn.create_function("NODAYMATCH", 1, nodaymatch)
 #         
 #     print(norm_race_dist("0:41:15",10,21.0975))
 #     print(norm_race_elev("0:51:03",97,12))
 #         
+    conn.commit()
     cur.close()
 
 if __name__ == "__main__":

@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  {% include 'header.html' %}  
+  
+  <body>
+  
+      <form method="POST" action="" accept-charset="UTF-8">
+    
+        <nav class="navbar navbar-inverse navbar-fixed-top">
+          <div class="container">
+            {% include 'navbar.html' %}
+          </div>
+        </nav>
+        
+        
+        <h2>Plot of Weight</h2>
+        <img src="{{ url_for('static', filename = 'weight.png') }}" class="img-fluid" alt = "plot of weight" >  
+        
+        {% include 'footer.html' %}
+</body>
+</html>
+    

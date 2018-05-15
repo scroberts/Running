@@ -18,6 +18,14 @@ def get_db():
     if db is None:
         db = g._database = sqlite3.connect(DATABASE)
     return db
+
+# No cacheing at all for API endpoints.
+@app.after_request
+def add_header(r):
+    r.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    r.headers["Pragma"] = "no-cache"
+    r.headers["Expires"] = "0"
+    return r
     
 @app.teardown_appcontext
 def close_connection(exception):
@@ -100,7 +108,7 @@ def ChangeWorkout(id):
     val_repetition = wo[9]
     val_shoe = wo[10]
     
-    cur.execute('SELECT shortName FROM shoes ORDER BY shortName')
+    cur.execute('SELECT shortName FROM shoes where retired is 0 ORDER BY shortName')
     
     shoe_list = [val_shoe]
     for row in cur:
@@ -233,9 +241,15 @@ def AddHealth():
                 val_hips = val_hips, val_notes = val_notes, val_HR = val_HR))
 
 
+@app.route('/PlotWeight', methods = ["GET", "POST"])
+def PlotWeight():
+    conn = get_db()
+    cur = conn.cursor()
+    sql.get_weight_report(cur)
+    return(render_template("PlotWeight.html"))
+
 @app.route('/AddWorkout', methods = ["GET", "POST"])
 def AddWorkout():
-
     conn = get_db()
     cur = conn.cursor()
 
@@ -250,7 +264,7 @@ def AddWorkout():
     val_interval = '0:00:00'
     val_repetition = '0:00:00'
     
-    cur.execute('SELECT shortName FROM shoes ORDER BY shortName')
+    cur.execute('SELECT shortName FROM shoes where retired is 0 ORDER BY shortName')
     
     shoe_list = []
     for row in cur:
