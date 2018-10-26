@@ -472,18 +472,18 @@ def get_workout_calculated_data(date, distance, recovery, easy, threshold, inter
     return([isodatestr,total_time_str, total_time, pace, secs_pace, secs_recovery, secs_easy, secs_threshold, secs_interval, secs_repetition, p8020, jd_int])
 
  
-def change_workout(id, conn, cur, date, location, objective, notes, distance, recovery, easy, threshold, interval, repetition, shoe_id):
+def change_workout(id, conn, cur, date, location, wo_type_id, objective, notes, distance, recovery, easy, threshold, interval, repetition, shoe_id):
     print('Changing Workout ID: ',id)
     
     [isodatestr, total_time_str, total_time, pace, secs_pace, secs_recovery, secs_easy, secs_threshold, secs_interval, secs_repetition, p8020, jd_int] = get_workout_calculated_data(date, distance, recovery, easy, threshold, interval, repetition)
     
     try:
-        cur.execute('UPDATE Log SET date=?, location=?, objective=?, notes=?, dist=?, \
+        cur.execute('UPDATE Log SET date=?, location=?, wo_type=?, objective=?, notes=?, dist=?, \
                     time = ?, time_secs = ?, pace = ?, pace_secs = ?, recovery = ?, \
                     recovery_secs = ?, easy = ?, easy_secs = ?, threshold = ?, \
                     threshold_secs = ?, interval = ?, interval_secs = ?, repetition = ?, \
                     repetition_secs = ?, p8020 = ?, jd_int = ?, shoeID = ?, isodate = ? WHERE id = ?',
-                    (date, location, objective, notes, float(distance), total_time_str, 
+                    (date, location, wo_type_id, objective, notes, float(distance), total_time_str, 
                     total_time, pace, secs_pace, recovery, secs_recovery, easy, secs_easy, 
                     threshold, secs_threshold, interval, secs_interval, repetition, 
                     secs_repetition, p8020, jd_int, shoe_id, isodatestr, id ))
@@ -493,7 +493,7 @@ def change_workout(id, conn, cur, date, location, objective, notes, distance, re
         print('Error - log entry couldn\'t be changed')   
 
         
-def add_workout(conn, cur, date, location, objective, notes, distance, recovery, easy, threshold, interval, repetition, shoe_id):
+def add_workout(conn, cur, date, location, wo_type_id, objective, notes, distance, recovery, easy, threshold, interval, repetition, shoe_id):
     print('Adding Workout for Date: ',date)
     
     [isodatestr,total_time_str, total_time, pace, secs_pace, secs_recovery, secs_easy, secs_threshold, secs_interval, secs_repetition, p8020, jd_int] = get_workout_calculated_data(date, distance, recovery, easy, threshold, interval, repetition)
@@ -502,16 +502,17 @@ def add_workout(conn, cur, date, location, objective, notes, distance, recovery,
 #     print('Pace = ', pace)
 #     print('SQL AddWorkout: recovery = %s, easy = %s, threshold = %s, interval = %s, repetition = %s' % (recovery, easy, threshold, interval, repetition))
 
-    cur.execute('INSERT INTO Log (date, location, objective, notes, dist, time, time_secs, pace, pace_secs, recovery, recovery_secs, easy, easy_secs, threshold, threshold_secs, interval, interval_secs, repetition, repetition_secs, p8020, jd_int, shoeID, isodate) VALUES \
-                ( ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,? )', 
-        ( date, location, objective, notes, float(distance), total_time_str, total_time, pace, secs_pace, recovery, secs_recovery, easy, secs_easy, threshold, secs_threshold, interval, secs_interval, repetition, secs_repetition, p8020, jd_int, shoe_id, isodatestr )) 
+    cur.execute('INSERT INTO Log (date, location, wo_type, objective, notes, dist, time, time_secs, pace, pace_secs, recovery, recovery_secs, easy, easy_secs, threshold, threshold_secs, interval, interval_secs, repetition, repetition_secs, p8020, jd_int, shoeID, isodate) VALUES \
+                ( ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,? )', 
+        ( date, location, wo_type_id, objective, notes, float(distance), total_time_str, total_time, pace, secs_pace, recovery, secs_recovery, easy, secs_easy, threshold, secs_threshold, interval, secs_interval, repetition, secs_repetition, p8020, jd_int, shoe_id, isodatestr )) 
 
     conn.commit() 
     
 def get_workout(cur, id):
-    cur.execute('SELECT date, location, objective, notes, dist, recovery, easy, \
+    cur.execute('SELECT date, location, type, objective, notes, dist, recovery, easy, \
                  threshold, interval, repetition, shortName FROM Log \
                  JOIN Shoes ON Log.ShoeID = Shoes.id \
+                 JOIN wo_type ON Log.wo_type = wo_type.id \
                 WHERE Log.id = ?', ( id , ))
                  
     workout = list(cur.fetchone())    
