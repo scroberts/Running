@@ -418,7 +418,7 @@ def get_weight_report(cur):
 def add_shoes(conn, cur, shortName, longName):
     print('Adding new shoes', shortName, longName)
     try:
-        cur.execute('INSERT INTO Shoes (shortName, longName) VALUES ( ?,? )', ( shortName, longName )) 
+        cur.execute('INSERT INTO Shoes (shortName, longName, retired) VALUES ( ?,?,? )', ( shortName, longName, 0 )) 
     except:
         print('Error - check if shoe already exists in table')   
     conn.commit() 
@@ -532,6 +532,8 @@ def get_workouts(cur):
             '80/20', 'JD Intensity', 'Shoes']    
 
     print(intro)
+    
+    f = open('workout_listing.txt','w')
 
     tbody = []
     for row in cur:
@@ -565,7 +567,13 @@ def get_workouts(cur):
         
         tbody.append([id_tag, date, description, dist, time, pace, zones, 
                 p8020, intensity, shoes])
+                
+        print(row[0],row[1],location,objective,dist,time,pace,recovery,easy,threshold,interval,repetition,p8020,intensity,shoes,sep='|',file=f)
+
     summary = 'Total of %d Workouts' % len(tbody) 
+    
+    f.close()
+    
     return([intro, thead, tbody, summary])
 
 def zones_str(recovery, easy, threshold, interval, repetition):
