@@ -23,6 +23,17 @@
                         <input type="text" name = "location" class="form-control" placeholder = "Location" value = "{{ val_location }}">
                     </div>
                     
+                    <p class="bottom-one">
+                      <div class="input-group">
+                        <span class="input-group-addon">Workout Type</span>
+                           <select name='wo_type' class="form-control" id="sel1">
+                                {% for dd in wo_type_list %}
+                                    <option value="{{dd}}">{{dd}}</option>
+                                {% endfor %}
+                           </select>    
+                      </div>
+                    </p>
+                    
                     <div class="input-group">
                         <span class="input-group-addon">Workout Objective</span>
                         <input type="text" name = "objective" class="form-control" placeholder = "Workout Objective" value = "{{ val_objective }}">
@@ -31,7 +42,7 @@
                     <div class="input-group">
                         <div class="form-group">
                             <span class="input-group-addon">Notes About Workout </span>
-                            <textarea type="text" name = "notes" class="form-control" rows="3" style="min-width: 100%" placeholder = "notes...">{{ val_notes }}</textarea>
+                            <textarea type="text" name = "notes" class="form-control" rows="3" style="min-width:100%" placeholder = "notes...">{{ val_notes }}</textarea>
                         </div>
                     </div>
                     

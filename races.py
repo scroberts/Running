@@ -98,26 +98,32 @@ def ChangeWorkout(id):
     
     val_date = wo[0]
     val_location = wo[1]
-    val_objective = wo[2]
-    val_notes = wo[3]
-    val_distance = wo[4]
-    val_recovery = wo[5]
-    val_easy = wo[6]
-    val_threshold = wo[7]
-    val_interval = wo[8]
-    val_repetition = wo[9]
-    val_shoe = wo[10]
+    val_wo_type = wo[2]
+    val_objective = wo[3]
+    val_notes = wo[4]
+    val_distance = wo[5]
+    val_recovery = wo[6]
+    val_easy = wo[7]
+    val_threshold = wo[8]
+    val_interval = wo[9]
+    val_repetition = wo[10]
+    val_shoe = wo[11]
     
     cur.execute('SELECT shortName FROM shoes where retired is 0 ORDER BY shortName')
-    
     shoe_list = [val_shoe]
     for row in cur:
         shoe_list.append(row[0])
+        
+    cur.execute('SELECT type FROM wo_type')
+    wo_type_list = [val_wo_type]
+    for row in cur:
+        wo_type_list.append(row[0])  
         
     if request.method == "POST":
         print('entered POST request')
         date = request.form['date'] 
         location = request.form['location'] 
+        wo_type = request.form['wo_type']        
         objective = request.form['objective'] 
         notes = request.form['notes'] 
         distance = request.form['distance'] 
@@ -132,14 +138,18 @@ def ChangeWorkout(id):
         cur.execute('SELECT id FROM shoes WHERE shortName = ?', (shoes,))
         shoe_id = cur.fetchone()[0]
         
-        sql.change_workout(id, conn, cur, date, location, objective, notes, distance, recovery, easy, threshold, interval, repetition, shoe_id)
+        print('wo_type = ', wo_type)
+        cur.execute('SELECT id FROM wo_type WHERE type = ?', (wo_type,))
+        wo_type_id = cur.fetchone()[0]
+        
+        sql.change_workout(id, conn, cur, date, location, wo_type_id, objective, notes, distance, recovery, easy, threshold, interval, repetition, shoe_id)
         
         [intro, thead, tbody, summary] = sql.get_workouts(cur)
         title = 'Listing of Workouts'
         return render_template("ListInfo.html", title = title, intro = intro, thead = thead, tbody = tbody, summary = summary)
 
     return(render_template("ChangeWorkout.html", val_date = val_date,
-                val_location = val_location, val_objective = val_objective,
+                val_location = val_location, val_wo_type = val_wo_type, wo_type_list = wo_type_list, val_objective = val_objective,
                 val_notes = val_notes, val_distance = val_distance, 
                 val_recovery = val_recovery, val_easy = val_easy,  
                 val_threshold =  val_threshold, val_interval = val_interval, 
@@ -265,16 +275,22 @@ def AddWorkout():
     val_repetition = '0:00:00'
     
     cur.execute('SELECT shortName FROM shoes where retired is 0 ORDER BY shortName')
-    
     shoe_list = []
     for row in cur:
         shoe_list.append(row[0])
+        
+    cur.execute('SELECT type FROM wo_type')
+    wo_type_list = []
+    for row in cur:
+        wo_type_list.append(row[0])         
+    
     print('In homepage')
     
     if request.method == "POST":
         print('entered POST request')
         date = request.form['date'] 
         location = request.form['location'] 
+        wo_type = request.form['wo_type']
         objective = request.form['objective'] 
         notes = request.form['notes'] 
         distance = request.form['distance'] 
@@ -290,9 +306,13 @@ def AddWorkout():
         shoe_id = cur.fetchone()[0]
         print('about to add workout\n')
         
+        print('wo_type = ', wo_type)
+        cur.execute('SELECT id FROM wo_type WHERE type = ?', (wo_type,))
+        wo_type_id = cur.fetchone()[0]
+        
         print('AddWorkout: recovery = %s, easy = %s, threshold = %s, interval = %s, repetition = %s' % (recovery, easy, threshold, interval, repetition))
         
-        sql.add_workout(conn, cur, date, location, objective, notes, distance, recovery, easy, threshold, interval, repetition, shoe_id)
+        sql.add_workout(conn, cur, date, location, wo_type_id, objective, notes, distance, recovery, easy, threshold, interval, repetition, shoe_id)
         
         print('Date =', date)
         print('Shoes =', shoes)
@@ -302,7 +322,7 @@ def AddWorkout():
 
     
     return(render_template("AddWorkout.html", val_date = val_date,
-                val_location = val_location, val_objective = val_objective,
+                val_location = val_location, wo_type_list = wo_type_list, val_objective = val_objective,
                 val_notes = val_notes, val_distance = val_distance, 
                 val_recovery = val_recovery, val_easy = val_easy,  
                 val_threshold =  val_threshold, val_interval = val_interval, 
