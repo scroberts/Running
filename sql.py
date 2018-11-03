@@ -522,8 +522,9 @@ def get_workout(cur, id):
 
 def get_workouts(cur):
     cur.execute('SELECT Log.id, date, location, objective, notes, dist, time, pace, recovery, easy, \
-                 threshold, interval, repetition, p8020, jd_int, shortName FROM Log \
+                 threshold, interval, repetition, p8020, jd_int, shortName, type FROM Log \
                  JOIN Shoes ON Log.ShoeID = Shoes.id \
+                 JOIN wo_type ON Log.wo_type = wo_type.id \
                  ORDER BY date DESC')
 
                 
@@ -555,6 +556,7 @@ def get_workouts(cur):
         p8020 = '% .1f%%' % row[13] 
         intensity = '% .2f' % row[14] 
         shoes = row[15]
+        wo_type_text = row[16]
                 
         if location is None:
             location = ''
@@ -562,7 +564,7 @@ def get_workouts(cur):
             objective = ''
         if notes is None:
             notes = ''
-        description = Markup('<strong>Location: </strong>' + location + '<br /><strong>Objective: </strong>' + objective + '<br /><strong>Notes: </strong>' + notes)
+        description = Markup('<strong>Location: </strong>' + location + '<br /><strong>WO Type: </strong>'+ wo_type_text + '<br /><strong>Objective: </strong>' + objective + '<br /><strong>Notes: </strong>' + notes)
 
         zones = zones_str(recovery, easy, threshold, interval, repetition)
         
