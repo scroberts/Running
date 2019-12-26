@@ -450,8 +450,12 @@ def get_workout_calculated_data(date, distance, recovery, easy, threshold, inter
     
     total_time = secs_recovery + secs_easy + secs_threshold + secs_interval + secs_repetition
     total_time_str = str_time(total_time)
-    secs_pace = total_time/float(distance)
-    pace = str_time(total_time/float(distance))
+    if float(distance) > 0.0:
+        secs_pace = total_time/float(distance)
+    else:
+        secs_pace = 0.0
+        
+    pace = str_time(secs_pace)
     
     # Calculate Percent 80/20
     p8020 = 100.0 * (secs_recovery + secs_easy)/total_time
@@ -535,7 +539,7 @@ def get_workouts(cur):
 
     print(intro)
     
-    f = open('workout_listing.txt','w')
+#     f = open('workout_listing.txt','w')
 
     tbody = []
     for row in cur:
@@ -571,11 +575,11 @@ def get_workouts(cur):
         tbody.append([id_tag, date, description, dist, time, pace, zones, 
                 p8020, intensity, shoes])
                 
-        print(row[0],row[1],location,objective,dist,time,pace,recovery,easy,threshold,interval,repetition,p8020,intensity,shoes,sep='|',file=f)
+#         print(row[0],row[1],location,objective,dist,time,pace,recovery,easy,threshold,interval,repetition,p8020,intensity,shoes,sep='|',file=f)
 
     summary = 'Total of %d Workouts' % len(tbody) 
     
-    f.close()
+#     f.close()
     
     return([intro, thead, tbody, summary])
 
