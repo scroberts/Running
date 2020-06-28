@@ -101,7 +101,7 @@ def ChangeWorkout(id):
     val_wo_type = wo[2]
     val_objective = wo[3]
     val_notes = wo[4]
-    val_distance = wo[5]
+    val_distance = str(wo[5])
     val_recovery = wo[6]
     val_easy = wo[7]
     val_threshold = wo[8]

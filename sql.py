@@ -14,7 +14,7 @@ import calendar
 # from datetime import datetime, timedelta
 
 import openpyxl
-from openpyxl.styles import Font, Style, Alignment
+from openpyxl.styles import Font, Alignment
 from openpyxl.styles.colors import BLUE
 from openpyxl import load_workbook
 
@@ -383,6 +383,7 @@ def get_weight_report(cur):
     weightlist = []
     for strdate in dates:
         # get date span of week
+        print(f"Strdate = {strdate}")
         date = datetime.strptime(strdate,'%Y-%m-%d')
         datelist.append(date)
         date_3_days_ago = date - timedelta(days=3)
@@ -549,7 +550,7 @@ def get_workouts(cur):
         location = row[2]
         objective = row[3]
         notes = row[4]
-        dist = row[5]
+        dist = str(row[5])
         time = row[6]
         pace = row[7]
         recovery = row[8]
@@ -868,6 +869,27 @@ def get_log_sums_over_months(cur, month_ago_nearest, month_ago_furthest):
     
     return([dist, td_str, zones, intensity, p8020])
 
+def get_dist_by_type(cur, disttype, datetype, startdatematch, enddatematch):
+
+    if datetype == "Isodate":
+        cur.execute('SELECT sum(dist) \
+        FROM Log JOIN wo_type ON Log.wo_type = wo_type.id \
+        WHERE isodate between ? and ?  and type == ?', (startdatematch, enddatematch, disttype))
+    elif datetype == "Date":
+        cur.execute('SELECT sum(dist) \
+        FROM Log JOIN wo_type ON Log.wo_type = wo_type.id \
+        WHERE isodate between ? and ?  and type == ?', (startdatematch, enddatematch, disttype)) 
+    else:
+        exit(0)   
+        
+    vals = cur.fetchone()
+    dist = vals[0]
+    
+    if dist is None:
+        dist = 0.0
+        
+    return(dist)
+
 def get_log_sums_over_weeks(cur, week_ago_nearest, week_ago_furthest):
     # this week_ago is week 0, last week is week 1, etc.
     
@@ -876,27 +898,32 @@ def get_log_sums_over_weeks(cur, week_ago_nearest, week_ago_furthest):
     # Get list of isodates
     cur.execute('SELECT noday(isodate) FROM Log GROUP BY noday(isodate) ORDER by noday(isodate) DESC')
     curlist = cur.fetchall()
-    print(curlist)
     
     # get the weekdays for the last day of nearest and the first day of furthest week 
     startdate = curlist[week_ago_furthest][0]
     enddate = curlist[week_ago_nearest][0]
     startdatematch = curlist[week_ago_furthest][0] + '-1'
     enddatematch = curlist[week_ago_nearest][0] + '-7'
-    print(startdatematch, enddatematch)
+    #print(startdatematch, enddatematch)
+
+    run_dist = '%.1f' % (get_dist_by_type(cur, "Run", "Isodate", startdatematch, enddatematch)/weeks)
+    ride_dist = '%.1f' % (get_dist_by_type(cur, "Ride", "Isodate", startdatematch, enddatematch)/weeks)
 
     cur.execute('SELECT sum(dist), sum(jd_int), sum(time_secs), sum(recovery_secs), sum(easy_secs), \
                 sum(threshold_secs), sum(interval_secs), sum(repetition_secs) \
                 FROM Log WHERE isodate BETWEEN ? and ?', (startdatematch, enddatematch))
     vals = cur.fetchone()
-    print(vals) 
     
     total_secs = vals[2]
     recovery_secs = vals[3]
     easy_secs = vals[4]
     p8020 = '%.1f' % (100.0 * (recovery_secs + easy_secs) / total_secs)
 
-    dist = '%.1f' % (vals[0]/weeks)
+    dist = '<strong>Run: </strong>' + str(run_dist)
+    dist += '<br /><strong>Ride: </strong>' + str(ride_dist)
+    dist += '<br /><strong>Total: </strong>' + str('%.1f' % (vals[0]/weeks))
+    dist = Markup(dist)
+    
     intensity = '%.1f' % (vals[1]/weeks)
     td_str = '%s' % timedelta(hours=0,minutes=0,seconds=int(vals[2]/weeks))
     recovery_str = '%s' % timedelta(hours=0,minutes=0,seconds=int(vals[3]/weeks))
@@ -906,7 +933,6 @@ def get_log_sums_over_weeks(cur, week_ago_nearest, week_ago_furthest):
     repetition_str = '%s' % timedelta(hours=0,minutes=0,seconds=int(vals[7]/weeks))
     
     zones = zones_str(recovery_str, easy_str, threshold_str, interval_str, repetition_str)
-    print(zones)
     
     return([dist, td_str, zones, intensity, p8020])
     
