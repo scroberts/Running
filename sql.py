@@ -18,6 +18,10 @@ from openpyxl.styles import Font, Alignment
 from openpyxl.styles.colors import BLUE
 from openpyxl import load_workbook
 
+import matplotlib
+# For the next line see https://stackoverflow.com/questions/53684971/assertion-failed-flask-server-stops-after-script-is-run
+# Also see: http://matplotlib.sourceforge.net/faq/usage_faq.html#what-is-a-backend
+matplotlib.use('Agg') 
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 import matplotlib.ticker as ticker
@@ -376,8 +380,14 @@ def get_weight_report(cur):
     cur.execute('SELECT date FROM Health WHERE (weight > 0) ORDER BY date DESC')
     dates = []
     # create a list of dates as ascii strings
+    count = 0
     for row in cur:
+        count = count+1
+        if count > 200:
+            break
         dates.append(row[0])
+
+            
     # find datetime format dates that span a week centered on date from list above
     datelist = []
     weightlist = []
@@ -405,13 +415,10 @@ def get_weight_report(cur):
     # now print
 
     plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
-    #plt.gca().xaxis.set_major_locator(mdates.DayLocator())
-    plt.gca().xaxis.set_major_locator(ticker.MultipleLocator(90))
-#     plt.plot([datetime.strptime('2016-10-01','%Y-%m-%d'),datetime.strptime('2016-10-02','%Y-%m-%d'),datetime.strptime('2016-10-03','%Y-%m-%d')],[1,2,30])
+    plt.gca().xaxis.set_major_locator(ticker.MultipleLocator(90))   
     plt.plot(datelist,weightlist)
     plt.gcf().autofmt_xdate()      
     plt.savefig('static/weight.png')
-    # plt.show() 
     plt.clf()
 
 
