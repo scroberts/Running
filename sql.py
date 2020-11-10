@@ -413,7 +413,6 @@ def get_weight_report(cur):
 #             print('No entries')
             
     # now print
-
     plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
     plt.gca().xaxis.set_major_locator(ticker.MultipleLocator(90))   
     plt.plot(datelist,weightlist)
