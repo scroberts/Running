@@ -9,7 +9,7 @@ import re
 # global cur
 # global races
 
-DATABASE = '/Users/sroberts/Dropbox/TMT/Python/Running/db/races.sqlite'
+DATABASE = '/Users/sroberts/Dropbox/Databases/RunningLog/races.sqlite'
  
 app = Flask(__name__)
 
