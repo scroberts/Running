@@ -2,14 +2,16 @@
 
 from flask import Flask, render_template, request, g
 import sqlite3
-import sql
 import re
+
+# local impoorts
+import sql
 
 # global conn
 # global cur
 # global races
 
-DATABASE = '/Users/sroberts/Dropbox/Databases/RunningLog/races.sqlite'
+DATABASE = '/Users/scottroberts/Dropbox/Databases/RunningLog/races.sqlite'
 
 app = Flask(__name__)
 
@@ -378,9 +380,9 @@ def compare():
         percent = request.form['percent']
         print('Percent =', percent)
 
-        id_1 = int(re.search('\d+',re.search('\<\d+\>',race1).group()).group())
+        id_1 = int(re.search(r'\d+',re.search(r'\<\d+\>',race1).group()).group())
         print('id_1 = ',id_1)
-        id_2 = int(re.search('\d+',re.search('\<\d+\>',race2).group()).group())
+        id_2 = int(re.search(r'\d+',re.search(r'\<\d+\>',race2).group()).group())
         print('id_2 = ',id_2)
         [eventname1, date1] = sql.get_race_info(cur,id_1)
         [eventname2, date2] = sql.get_race_info(cur,id_2)

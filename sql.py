@@ -7,7 +7,7 @@ import time
 #import datetime
 from datetime import datetime, timedelta
 import numpy as np
-from flask import Markup
+from markupsafe import Markup
 
 # from datetime import time
 # from datetime import datetime, timedelta
@@ -33,25 +33,25 @@ align_ver_cen_style = Alignment(vertical='center')
 align_wrap_cen_style = Alignment(wrap_text=True, vertical='center')
 
 def parse_datestr(datestr):
-    m = re.search('(^\d*)-(\d*)-(\d*)', datestr)
+    m = re.search(r'(^\d*)-(\d*)-(\d*)', datestr)
     return([m.group(1), m.group(2), m.group(3)])
 
 def scrub_timestr(timestr):
-    m = re.search('(^\d*):(\d*):(\d*)', timestr)
+    m = re.search(r'(^\d*):(\d*):(\d*)', timestr)
     hours = '%s' % int(m.group(1))
     mins = '%s' % int(m.group(2))
     secs = '%s' % int(m.group(3))
     return(hours + ':' + mins.zfill(2) + ':' + secs.zfill(2))
 
 def timestr2pacestr(timestr):
-    m = re.search('(^\d*):(\d*):(\d*)', timestr)
+    m = re.search(r'(^\d*):(\d*):(\d*)', timestr)
     hours = '%s' % int(m.group(1))
     mins = '%s' % int(m.group(2))
     secs = '%s' % int(m.group(3))
     return(mins + ':' + secs.zfill(2))
 
 def scrub_pace(pacestr):
-    m = re.search('(^\d*):(\d*)', pacestr)
+    m = re.search(r'(^\d*):(\d*)', pacestr)
     mins = '%s' % int(m.group(1))
     secs = '%s' % int(m.group(2))
     return(mins + ':' + secs.zfill(2))
