@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python3.9
 
 from flask import Flask, render_template, request, g
 import sqlite3
@@ -10,7 +10,7 @@ import re
 # global races
 
 DATABASE = '/Users/sroberts/Dropbox/Databases/RunningLog/races.sqlite'
- 
+
 app = Flask(__name__)
 
 def get_db():
@@ -26,7 +26,7 @@ def add_header(r):
     r.headers["Pragma"] = "no-cache"
     r.headers["Expires"] = "0"
     return r
-    
+
 @app.teardown_appcontext
 def close_connection(exception):
     db = getattr(g, '_database', None)
@@ -41,7 +41,7 @@ def Homepage():
 def Workout52Weeks():
     conn = get_db()
     cur = conn.cursor()
-    
+
     [intro, thead, tbody, summary] = sql.get_log_52weeks(conn, cur)
     title = 'Workout Statistics'
 
@@ -51,7 +51,7 @@ def Workout52Weeks():
 def WorkoutWeekStats():
     conn = get_db()
     cur = conn.cursor()
-    
+
     [intro, thead, tbody, summary] = sql.get_log_week_stats(conn, cur)
     title = 'Workout Statistics'
 
@@ -61,7 +61,7 @@ def WorkoutWeekStats():
 def Workout12Months():
     conn = get_db()
     cur = conn.cursor()
-    
+
     [intro, thead, tbody, summary] = sql.get_log_12months(conn, cur)
     title = 'Workout Statistics'
 
@@ -72,7 +72,7 @@ def Workout12Months():
 def WorkoutMonthStats():
     conn = get_db()
     cur = conn.cursor()
-    
+
     [intro, thead, tbody, summary] = sql.get_log_month_stats(conn, cur)
     title = 'Workout Statistics'
 
@@ -83,7 +83,7 @@ def ListWorkouts():
 
     conn = get_db()
     cur = conn.cursor()
-    
+
     [intro, thead, tbody, summary] = sql.get_workouts(cur)
     title = 'Listing of Workouts'
     intro = ''
@@ -95,7 +95,7 @@ def ChangeWorkout(id):
     cur = conn.cursor()
     print('id = ', id)
     wo = sql.get_workout(cur, id)
-    
+
     val_date = wo[0]
     val_location = wo[1]
     val_wo_type = wo[2]
@@ -108,51 +108,51 @@ def ChangeWorkout(id):
     val_interval = wo[9]
     val_repetition = wo[10]
     val_shoe = wo[11]
-    
+
     cur.execute('SELECT shortName FROM shoes where retired is 0 ORDER BY shortName')
     shoe_list = [val_shoe]
     for row in cur:
         shoe_list.append(row[0])
-        
+
     cur.execute('SELECT type FROM wo_type')
     wo_type_list = [val_wo_type]
     for row in cur:
-        wo_type_list.append(row[0])  
-        
+        wo_type_list.append(row[0])
+
     if request.method == "POST":
         print('entered POST request')
-        date = request.form['date'] 
-        location = request.form['location'] 
-        wo_type = request.form['wo_type']        
-        objective = request.form['objective'] 
-        notes = request.form['notes'] 
-        distance = request.form['distance'] 
-        recovery = request.form['recovery'] 
-        easy = request.form['easy'] 
-        threshold = request.form['threshold'] 
-        interval = request.form['interval'] 
-        repetition = request.form['repetition']         
+        date = request.form['date']
+        location = request.form['location']
+        wo_type = request.form['wo_type']
+        objective = request.form['objective']
+        notes = request.form['notes']
+        distance = request.form['distance']
+        recovery = request.form['recovery']
+        easy = request.form['easy']
+        threshold = request.form['threshold']
+        interval = request.form['interval']
+        repetition = request.form['repetition']
         shoes = request.form['shoes']
 
         print('shoes = ', shoes)
         cur.execute('SELECT id FROM shoes WHERE shortName = ?', (shoes,))
         shoe_id = cur.fetchone()[0]
-        
+
         print('wo_type = ', wo_type)
         cur.execute('SELECT id FROM wo_type WHERE type = ?', (wo_type,))
         wo_type_id = cur.fetchone()[0]
-        
+
         sql.change_workout(id, conn, cur, date, location, wo_type_id, objective, notes, distance, recovery, easy, threshold, interval, repetition, shoe_id)
-        
+
         [intro, thead, tbody, summary] = sql.get_workouts(cur)
         title = 'Listing of Workouts'
         return render_template("ListInfo.html", title = title, intro = intro, thead = thead, tbody = tbody, summary = summary)
 
     return(render_template("ChangeWorkout.html", val_date = val_date,
                 val_location = val_location, val_wo_type = val_wo_type, wo_type_list = wo_type_list, val_objective = val_objective,
-                val_notes = val_notes, val_distance = val_distance, 
-                val_recovery = val_recovery, val_easy = val_easy,  
-                val_threshold =  val_threshold, val_interval = val_interval, 
+                val_notes = val_notes, val_distance = val_distance,
+                val_recovery = val_recovery, val_easy = val_easy,
+                val_threshold =  val_threshold, val_interval = val_interval,
                 val_repetition = val_repetition, val_shoe = val_shoe, shoe_list = shoe_list))
 
 @app.route('/ListAthletes', methods = ["GET", "POST"])
@@ -162,13 +162,13 @@ def ListAthletes():
     title = 'Listing of Athletes'
     [intro, thead, tbody, summary] = sql.get_athletes(conn, cur, Letter = 'C')
     return render_template("ListInfo.html", title = title, intro = intro, thead = thead, tbody = tbody, summary = summary)
-    
+
 @app.route('/ListHealth', methods = ["GET", "POST"])
 def ListHealth():
 
     conn = get_db()
     cur = conn.cursor()
-    
+
     [intro, thead, tbody, summary] = sql.get_health_list(cur)
     title = 'Listing of Health'
     intro = ''
@@ -179,9 +179,9 @@ def ListHealth():
 def ChangeHealth(id):
     conn = get_db()
     cur = conn.cursor()
-    
+
     health = sql.get_health(cur, id)
-    
+
     val_date = health[1]
     val_weight = health[2]
     val_waist = health[3]
@@ -190,19 +190,19 @@ def ChangeHealth(id):
     val_chest = health[6]
     val_HR = health[7]
     val_notes = health[8]
-    
+
     if request.method == "POST":
-        date = request.form['date'] 
-        weight = request.form['weight'] 
-        waist = request.form['waist']    
+        date = request.form['date']
+        weight = request.form['weight']
+        waist = request.form['waist']
         waist_bb = request.form['waist_bb']
-        hips = request.form['hips'] 
-        chest = request.form['chest'] 
+        hips = request.form['hips']
+        chest = request.form['chest']
         HR = request.form['HR']
-        notes = request.form['notes'] 
-        
+        notes = request.form['notes']
+
         sql.change_health(conn, id, cur, date, weight, waist, waist_bb, hips, chest, notes, HR)
-        
+
         [intro, thead, tbody, summary] = sql.get_health_list(cur)
         title = 'Listing of Health'
         intro = ''
@@ -210,8 +210,8 @@ def ChangeHealth(id):
 
     return(render_template("AddHealth.html", val_date = val_date,
                 val_weight = val_weight, val_waist = val_waist,
-                val_waist_bb =  val_waist_bb, val_chest = val_chest, 
-                val_hips = val_hips, val_notes = val_notes, val_HR = val_HR))        
+                val_waist_bb =  val_waist_bb, val_chest = val_chest,
+                val_hips = val_hips, val_notes = val_notes, val_HR = val_HR))
 
 
 @app.route('/AddHealth', methods = ["GET", "POST"])
@@ -226,28 +226,28 @@ def AddHealth():
     val_hips = '0.0'
     val_notes = 'notes...'
     val_HR = 60
-    
+
     if request.method == "POST":
         print('entered Health POST request')
-        date = request.form['date'] 
-        weight = request.form['weight'] 
-        waist = request.form['waist']    
+        date = request.form['date']
+        weight = request.form['weight']
+        waist = request.form['waist']
         waist_bb = request.form['waist_bb']
-        chest = request.form['chest'] 
-        hips = request.form['hips'] 
+        chest = request.form['chest']
+        hips = request.form['hips']
         HR = request.form['HR']
-        notes = request.form['notes'] 
+        notes = request.form['notes']
         sql.add_health(conn, cur, date, weight, waist, waist_bb, hips, chest, notes, HR)
-        
+
         [intro, thead, tbody, summary] = sql.get_health_list(cur)
         title = 'Listing of Health'
         intro = ''
         return render_template("ListInfo.html", title = title, intro = intro, thead = thead, tbody = tbody, summary = summary)
 
-        
+
     return(render_template("AddHealth.html", val_date = val_date,
                 val_weight = val_weight, val_waist = val_waist,
-                val_waist_bb =  val_waist_bb, val_chest = val_chest, 
+                val_waist_bb =  val_waist_bb, val_chest = val_chest,
                 val_hips = val_hips, val_notes = val_notes, val_HR = val_HR))
 
 
@@ -273,59 +273,59 @@ def AddWorkout():
     val_threshold = '0:00:00'
     val_interval = '0:00:00'
     val_repetition = '0:00:00'
-    
+
     cur.execute('SELECT shortName FROM shoes where retired is 0 ORDER BY shortName')
     shoe_list = []
     for row in cur:
         shoe_list.append(row[0])
-        
+
     cur.execute('SELECT type FROM wo_type')
     wo_type_list = []
     for row in cur:
-        wo_type_list.append(row[0])         
-    
+        wo_type_list.append(row[0])
+
     print('In homepage')
-    
+
     if request.method == "POST":
         print('entered POST request')
-        date = request.form['date'] 
-        location = request.form['location'] 
+        date = request.form['date']
+        location = request.form['location']
         wo_type = request.form['wo_type']
-        objective = request.form['objective'] 
-        notes = request.form['notes'] 
-        distance = request.form['distance'] 
-        recovery = request.form['recovery'] 
-        easy = request.form['easy'] 
-        threshold = request.form['threshold'] 
-        interval = request.form['interval'] 
-        repetition = request.form['repetition']         
+        objective = request.form['objective']
+        notes = request.form['notes']
+        distance = request.form['distance']
+        recovery = request.form['recovery']
+        easy = request.form['easy']
+        threshold = request.form['threshold']
+        interval = request.form['interval']
+        repetition = request.form['repetition']
         shoes = request.form['shoes']
 
         print('shoes = ', shoes)
         cur.execute('SELECT id FROM shoes WHERE shortName = ?', (shoes,))
         shoe_id = cur.fetchone()[0]
         print('about to add workout\n')
-        
+
         print('wo_type = ', wo_type)
         cur.execute('SELECT id FROM wo_type WHERE type = ?', (wo_type,))
         wo_type_id = cur.fetchone()[0]
-        
+
         print('AddWorkout: recovery = %s, easy = %s, threshold = %s, interval = %s, repetition = %s' % (recovery, easy, threshold, interval, repetition))
-        
+
         sql.add_workout(conn, cur, date, location, wo_type_id, objective, notes, distance, recovery, easy, threshold, interval, repetition, shoe_id)
-        
+
         print('Date =', date)
         print('Shoes =', shoes)
         [intro, thead, tbody, summary] = sql.get_workouts(cur)
         title = 'Listing of Workouts'
         return render_template("ListInfo.html", title = title, intro = intro, thead = thead, tbody = tbody, summary = summary)
 
-    
+
     return(render_template("AddWorkout.html", val_date = val_date,
                 val_location = val_location, wo_type_list = wo_type_list, val_objective = val_objective,
-                val_notes = val_notes, val_distance = val_distance, 
-                val_recovery = val_recovery, val_easy = val_easy,  
-                val_threshold =  val_threshold, val_interval = val_interval, 
+                val_notes = val_notes, val_distance = val_distance,
+                val_recovery = val_recovery, val_easy = val_easy,
+                val_threshold =  val_threshold, val_interval = val_interval,
                 val_repetition = val_repetition, shoe_list = shoe_list))
 
 
@@ -334,7 +334,7 @@ def ListShoes():
 
     conn = get_db()
     cur = conn.cursor()
-    
+
     [intro, thead, tbody, summary] = sql.get_shoes(cur)
     title = 'Listing of Shoes'
     intro = ''
@@ -344,18 +344,18 @@ def ListShoes():
 def Addshoes():
     val_shortName = 'Short Name'
     val_longName = 'Long Name'
-    
+
     conn = get_db()
     cur = conn.cursor()
-    
+
     [intro,thead,tbody,summary] = sql.get_shoes(cur)
 
     if request.method == "POST":
-        shortName = request.form['shortName'] 
-        longName = request.form['longName'] 
+        shortName = request.form['shortName']
+        longName = request.form['longName']
         sql.add_shoes(conn, cur, shortName, longName)
         [intro,thead,tbody,summary] = sql.get_shoes(cur)
-    
+
     return(render_template("ShoeInput.html", intro = intro, thead = thead, tbody = tbody))
 
 @app.route('/Compare', methods = ["GET", "POST"])
@@ -365,19 +365,19 @@ def compare():
     cur = conn.cursor()
 
     races = sql.get_races(cur)
-    
+
     if request.method == "POST":
-        race1 = request.form['race1'] 
+        race1 = request.form['race1']
         print('Race 1 =', race1)
-        race2 = request.form['race2'] 
+        race2 = request.form['race2']
         print('Race 2 =', race2)
-        min_time = request.form['min_time'] 
+        min_time = request.form['min_time']
         print('Min Time =', min_time)
-        max_time = request.form['max_time'] 
+        max_time = request.form['max_time']
         print('Max Time =', max_time)
-        percent = request.form['percent'] 
-        print('Percent =', percent)       
-        
+        percent = request.form['percent']
+        print('Percent =', percent)
+
         id_1 = int(re.search('\d+',re.search('\<\d+\>',race1).group()).group())
         print('id_1 = ',id_1)
         id_2 = int(re.search('\d+',re.search('\<\d+\>',race2).group()).group())
@@ -399,4 +399,4 @@ def show_user_races(username):
     return render_template("ListInfo.html", title = title, intro = intro, thead = thead, tbody = tbody, summary = summary)
 
 if __name__ == "__main__":
-    app.run(debug = True, host='0.0.0.0', port=8080, passthrough_errors=True)
+    app.run(debug = False, host='0.0.0.0', port=8080, passthrough_errors=True)
