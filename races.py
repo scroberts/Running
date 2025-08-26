@@ -344,8 +344,6 @@ def ListShoes():
 
 @app.route('/AddShoes', methods = ["GET", "POST"])
 def Addshoes():
-    val_shortName = 'Short Name'
-    val_longName = 'Long Name'
 
     conn = get_db()
     cur = conn.cursor()
