@@ -3,19 +3,18 @@
 # References
 # http://nedbatchelder.com/text/iter/iter.html#31
 
-import openpyxl
 import datetime
 import calendar
 # import time
 from datetime import timedelta
 # from datetime import datetime
 
-from flask import Flask, render_template, request, g
+from flask import Flask, g
 import sqlite3
 import sql
 
 import matplotlib.pyplot as plt
-from matplotlib.dates import DayLocator, HourLocator, DateFormatter, drange
+from matplotlib.dates import drange
 
 DATABASE = '/Users/sroberts/Dropbox/TMT/Python/Running/db/races.sqlite'
 
@@ -48,7 +47,7 @@ def greg_YMDstr_to_datetime(greg_str):
 
 def iso_YWDstr_to_datetime(iso_str):
     # Converts string in YYYY-WXX-D format into a datetime object
-    return(datetime.datetime.strptime(greg_str,'%Y-W%W-%w'))
+    return(datetime.datetime.strptime(iso_str,'%Y-W%W-%w'))
     
 def read_spreadsheet( sheet ):
 
@@ -100,19 +99,19 @@ def calc_data( myRun ):
         myRun[k]['isodate'] = myRun[k]['date'].isocalendar()
         myRun[k]['time_run'] = time2timedelta(datetime.datetime.strptime(myRun[k]['time_run'],'%H:%M:%S'))
 
-        if myRun[k]['time_recovery'] != None:
+        if myRun[k]['time_recovery'] is not None:
             myRun[k]['time_recovery'] = time2timedelta(datetime.datetime.strptime(myRun[k]['time_recovery'],'%H:%M:%S'))
         
-        if myRun[k]['time_easy'] != None:
+        if myRun[k]['time_easy'] is not None:
             myRun[k]['time_easy'] = time2timedelta(datetime.datetime.strptime(myRun[k]['time_easy'],'%H:%M:%S'))
             
-        if myRun[k]['time_tempo'] != None:
+        if myRun[k]['time_tempo'] is not None:
             myRun[k]['time_tempo'] = time2timedelta(datetime.datetime.strptime(myRun[k]['time_tempo'],'%H:%M:%S'))
             
-        if myRun[k]['time_interval'] != None:
+        if myRun[k]['time_interval'] is not None:
             myRun[k]['time_interval'] = time2timedelta(datetime.datetime.strptime(myRun[k]['time_interval'],'%H:%M:%S'))
             
-        if myRun[k]['time_repetition'] != None:
+        if myRun[k]['time_repetition'] is not None:
             myRun[k]['time_repetition'] = time2timedelta(datetime.datetime.strptime(myRun[k]['time_repetition'],'%H:%M:%S'))
             
     return(myRun)
@@ -309,15 +308,15 @@ def calc_8020(weekstats, myRun):
         repetition_time = zt
         
         for i in range(weekstats[k]['start_row_id'],weekstats[k]['end_row_id']+1):
-            if myRun[i]['time_recovery'] != None:
+            if myRun[i]['time_recovery'] is not None:
                 recovery_time += myRun[i]['time_recovery']
-            if myRun[i]['time_easy'] != None:
+            if myRun[i]['time_easy'] is not None:
                 easy_time += myRun[i]['time_easy']
-            if myRun[i]['time_tempo'] != None:                
+            if myRun[i]['time_tempo'] is not None:                
                 tempo_time += myRun[i]['time_tempo']
-            if myRun[i]['time_interval'] != None:
+            if myRun[i]['time_interval'] is not None:
                 interval_time += myRun[i]['time_interval']
-            if myRun[i]['time_repetition'] != None:
+            if myRun[i]['time_repetition'] is not None:
                 repetition_time += myRun[i]['time_repetition']
                 
         # Check that there is at least one non-zero time in the data

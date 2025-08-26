@@ -45,7 +45,6 @@ def scrub_timestr(timestr):
 
 def timestr2pacestr(timestr):
     m = re.search(r'(^\d*):(\d*):(\d*)', timestr)
-    hours = '%s' % int(m.group(1))
     mins = '%s' % int(m.group(2))
     secs = '%s' % int(m.group(3))
     return(mins + ':' + secs.zfill(2))
@@ -95,7 +94,6 @@ def read_ss(sheet, conn, cur):
     # define indices for spreadsheet row and dictionary row
     ssrow = 5
     dicrow = 1
-    myRun = {}
 
     while sheet.cell(row=ssrow, column=1).value:
         print('\ndate = ',sheet.cell(row=ssrow, column=1).value)
@@ -111,7 +109,6 @@ def read_ss(sheet, conn, cur):
             time = "0:00:00"
         else:
             time = '%s' % time
-        pace = sheet.cell(row = ssrow, column = 7).value
         recovery = sheet.cell(row = ssrow, column = 8).value
         if not recovery:
             recovery = "0:00:00"
@@ -139,8 +136,6 @@ def read_ss(sheet, conn, cur):
             repetition = '%s' % repetition
         if recovery == "0:00:00" and easy == "0:00:00" and threshold == "0:00:00" and interval == "0:00:00" and repetition == "0:00:00":
             easy = time
-        time_80_20 = sheet.cell(row = ssrow, column = 13).value
-        intensity = sheet.cell(row = ssrow, column = 14).value
         shoes = sheet.cell(row = ssrow, column = 15).value
 
         cur.execute('SELECT id FROM shoes WHERE shortName = ?', (shoes,))
@@ -335,26 +330,29 @@ def load_csv_health(conn, cur, csvfilename):
                 try:
                     add_health(conn, cur, row['Date'], row['Weight (kg)'], row['Waist'], \
                         row['Waist at bb'], row['Hip'], row['Chest'], row['Notes'], row['HR'])
-                except:
+                except Exception as e:
                     print('Error importing CSV file for Health')
+                    print(f"An unexpected error occurred: {e}")
                     exit(1)
         conn.commit()
         print('Succeeded')
-    except Exception as Error:
+    except Exception:
         print('Failed')
 
 def add_health(conn, cur, date, weight, smallWaist, bbWaist, hip, chest, notes, HR):
     try:
         cur.execute('INSERT INTO Health (date, weight, smallWaist, bbWaist, hip, chest, notes, HR) VALUES ( ?,?,?,?,?,?,?,? )', ( date, weight, smallWaist, bbWaist, hip, chest, notes, HR))
-    except:
+    except Exception as e:
         print('Error - unable to enter heath, date = ', date)
+        print(f"An unexpected error occurred: {e}")
     conn.commit()
 
 def change_health(conn, id, cur, date, weight, smallWaist, bbWaist, hip, chest, notes, HR):
     try:
         cur.execute('UPDATE Health SET date=?, weight=?, smallWaist=?, bbWaist=?, hip=?, chest=?, notes=?, HR=? WHERE id = ?', ( date, weight, smallWaist, bbWaist, hip, chest, notes, HR, id))
-    except:
+    except Exception as e:
         print('Error - unable to update heath record, id = ', id)
+        print(f"An unexpected error occurred: {e}")
     conn.commit()
 
 def get_health(cur, id):
@@ -411,9 +409,8 @@ def get_weight_report(cur):
 #                 print(strdate,' : %.2f' % row[0])
 #             weightlist.append(row[0])
             weightlist.append(cur.fetchone())
-        except:
-            pass
-#             print('No entries')
+        except Exception as e:
+        	print(f"An unexpected error occurred: {e}")
 
     # now print
     plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
@@ -429,8 +426,9 @@ def add_shoes(conn, cur, shortName, longName):
     print('Adding new shoes', shortName, longName)
     try:
         cur.execute('INSERT INTO Shoes (shortName, longName, retired) VALUES ( ?,?,? )', ( shortName, longName, 0 ))
-    except:
+    except Exception as e:
         print('Error - check if shoe already exists in table')
+        print(f"An unexpected error occurred: {e}")
     conn.commit()
 
 def get_shoes(cur):
@@ -503,9 +501,9 @@ def change_workout(id, conn, cur, date, location, wo_type_id, objective, notes, 
                     secs_repetition, p8020, jd_int, shoe_id, isodatestr, id ))
         conn.commit()
 
-    except:
+    except Exception as e:
         print('Error - log entry couldn\'t be changed')
-
+        print(f"An unexpected error occurred: {e}")
 
 def add_workout(conn, cur, date, location, wo_type_id, objective, notes, distance, recovery, easy, threshold, interval, repetition, shoe_id):
     print('Adding Workout for Date: ',date)
@@ -611,8 +609,9 @@ def add_event(conn, cur, racename, dist, min_elev, max_elev, gain_elev):
     print('Adding Event: ',racename)
     try:
         cur.execute('INSERT INTO Events (eventname, dist, min_elev, max_elev, gain_elev) VALUES ( ?,?,?,?,? )', ( racename, dist, min_elev, max_elev, gain_elev ))
-    except:
+    except Exception as e:
         print('Event already exists in table')
+        print(f"An unexpected error occurred: {e}")
     conn.commit()
 
 def test_load_result(conn, cur, csvfilename, eventname, date, dist, min_elev, max_elev, gain_elev):
@@ -642,8 +641,9 @@ def load_result(conn, cur, csvfilename, eventname, date, dist, min_elev, max_ele
 
     try:
         cur.execute('INSERT INTO Races (eventID, date) VALUES (?,?) ', ( eventID , date, ))
-    except:
+    except Exception as e:
         print('Racename already exists in table')
+        print(f"An unexpected error occurred: {e}")
         exit(0)
 
     cur.execute('SELECT id FROM Races WHERE eventID = ? AND date = ? LIMIT 1', ( eventID , date ))
@@ -654,8 +654,8 @@ def load_result(conn, cur, csvfilename, eventname, date, dist, min_elev, max_ele
         for row in reader:
             try:
                 cur.execute('INSERT INTO Athletes (name, age_group, club, hometown) VALUES ( ?, ?, ?, ? )', ( row['name'], row['age_group'], row['club'], row['hometown'],))
-            except:
-                pass
+            except Exception as e:
+                print(f"An unexpected error occurred: {e}")
     conn.commit()
 
     with open(csvfilename) as csvfile:
@@ -666,8 +666,9 @@ def load_result(conn, cur, csvfilename, eventname, date, dist, min_elev, max_ele
             print(AthleteID, raceID, row['time'], row['pace'] )
             try:
                 cur.execute('INSERT INTO RaceTimes (athleteID, raceID, str_time, sec_time, pace) VALUES ( ?, ?, ?, ?, ?)', ( AthleteID, raceID, scrub_timestr(row['time']), secs(row['time']), row['pace'] ) )
-            except:
+            except Exception as e:
                 print('Error adding to RaceTimes')
+                print(f"An unexpected error occurred: {e}")
                 exit(1)
     conn.commit()
 
@@ -852,8 +853,8 @@ def get_log_sums_over_months(cur, month_ago_nearest, month_ago_furthest):
     # get the weekdays for the last day of nearest and the first day of furthest week
     startdate = curlist[month_ago_furthest][0]
     enddate = curlist[month_ago_nearest][0]
-    startdatematch = curlist[month_ago_furthest][0] + '-01'
-    enddatematch = curlist[month_ago_nearest][0] + '-31'
+    startdatematch = startdate + '-01'
+    enddatematch = enddate + '-31'
 
     cur.execute('SELECT sum(dist), sum(jd_int), sum(time_secs), sum(recovery_secs), sum(easy_secs), \
                 sum(threshold_secs), sum(interval_secs), sum(repetition_secs) \
@@ -911,8 +912,8 @@ def get_log_sums_over_weeks(cur, week_ago_nearest, week_ago_furthest):
     # get the weekdays for the last day of nearest and the first day of furthest week
     startdate = curlist[week_ago_furthest][0]
     enddate = curlist[week_ago_nearest][0]
-    startdatematch = curlist[week_ago_furthest][0] + '-1'
-    enddatematch = curlist[week_ago_nearest][0] + '-7'
+    startdatematch = startdate + '-1'
+    enddatematch = enddate + '-7'
     #print(startdatematch, enddatematch)
 
     run_dist = '%.1f' % (get_dist_by_type(cur, "Run", "Isodate", startdatematch, enddatematch)/weeks)

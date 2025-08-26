@@ -1,22 +1,10 @@
 #!/usr/bin/env python3
 
-import re
-import csv
-import sqlite3
-import time
 import datetime
-from datetime import timedelta
-import numpy as np
-from flask import Markup
 
-import calendar
 # from datetime import time
 # from datetime import datetime, timedelta
 
-import openpyxl
-from openpyxl.styles import Font, Style, Alignment
-from openpyxl.styles.colors import BLUE
-from openpyxl import load_workbook
 
 import sql
 
