@@ -340,7 +340,7 @@ def load_csv_health(conn, cur, csvfilename):
                     exit(1)
         conn.commit()
         print('Succeeded')
-    except Exception as Error:
+    except Exception:
         print('Failed')
 
 def add_health(conn, cur, date, weight, smallWaist, bbWaist, hip, chest, notes, HR):

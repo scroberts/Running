@@ -3,19 +3,18 @@
 # References
 # http://nedbatchelder.com/text/iter/iter.html#31
 
-import openpyxl
 import datetime
 import calendar
 # import time
 from datetime import timedelta
 # from datetime import datetime
 
-from flask import Flask, render_template, request, g
+from flask import Flask, g
 import sqlite3
 import sql
 
 import matplotlib.pyplot as plt
-from matplotlib.dates import DayLocator, HourLocator, DateFormatter, drange
+from matplotlib.dates import drange
 
 DATABASE = '/Users/sroberts/Dropbox/TMT/Python/Running/db/races.sqlite'
 
