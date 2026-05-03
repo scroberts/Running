@@ -6,7 +6,11 @@ import datetime
 # from datetime import datetime, timedelta
 
 
+import logging
 import sql
+from config import DATABASE
+
+logger = logging.getLogger(__name__)
 
 def compare_list_of_races(cur):
     percent_diff = 0.2
@@ -93,12 +97,12 @@ def update_workout_calculated_data(conn, cur):
 #         print(row[0])
         id = row[0]
         
-        cur.execute('SELECT date, location, objective, notes, dist, recovery, easy, \
+        cur.execute('SELECT date, location, wo_type, objective, notes, dist, recovery, easy, \
              threshold, interval, repetition, shoeID FROM Log \
             WHERE Log.id = ?', ( id , ))
-        [date, location, objective, notes, distance, recovery, easy, threshold, interval, repetition, shoe_id] = list(cur.fetchone()) 
-        
-        sql.change_workout(id, conn, cur, date, location, objective, notes, distance, recovery, easy, threshold, interval, repetition, shoe_id)
+        [date, location, wo_type_id, objective, notes, distance, recovery, easy, threshold, interval, repetition, shoe_id] = list(cur.fetchone())
+
+        sql.change_workout(conn, cur, id, date, location, wo_type_id, objective, notes, distance, recovery, easy, threshold, interval, repetition, shoe_id)
 
 def update_racetimes_time(conn,cur):
     cur.execute('SELECT id, str_time FROM Racetimes')
@@ -125,7 +129,7 @@ def recalc_racetimes_pace(conn,cur):
     for row in curlist:  
         pace = sql.str_time(row[1]/row[3])
         pace = sql.timestr2pacestr(pace)
-        print(row[0], row[1], row[2], row[3], pace)
+        logger.debug('racetime id=%s sec=%s event=%s dist=%s pace=%s', row[0], row[1], row[2], row[3], pace)
         cur.execute('UPDATE Racetimes SET pace = ? WHERE id = ?',(pace,row[0]))
     conn.commit()
     
@@ -139,7 +143,7 @@ def update_isodate(conn,cur):
         week = '%s' % isodate[1]
         day = '%s' % isodate[2]
         isodatestr = year + '-' + week.zfill(2) + '-' + day
-        print(row[0], isodatestr)
+        logger.debug('update isodate id=%s -> %s', row[0], isodatestr)
         cur.execute('UPDATE Log SET isodate = ? WHERE id = ?',(isodatestr,row[0]))
     conn.commit()
     
@@ -157,14 +161,14 @@ def update_secs(conn,cur):
         interval_secs = secs(row[6])
         repetition_secs = secs(row[7])
         
-        print(row)
+        logger.debug('update secs row=%s', row)
         
         cur.execute('UPDATE Log SET time_secs = ?, pace_secs = ?, recovery_secs = ?, easy_secs = ?, threshold_secs = ?, interval_secs = ?, repetition_secs = ? WHERE id = ?',(time_secs, pace_secs, recovery_secs, easy_secs, threshold_secs, interval_secs, repetition_secs, id))
     conn.commit()
 
 def main_sql():
 
-    [conn, cur] = sql.load_database('/Users/sroberts/Dropbox/TMT/Python/Running/db/races.sqlite')    
+    [conn, cur] = sql.load_database(DATABASE)    
     recalc_racetimes_pace(conn,cur)
     update_workout_calculated_data(conn, cur)
         

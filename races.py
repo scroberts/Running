@@ -3,15 +3,14 @@
 from flask import Flask, render_template, request, g
 import sqlite3
 import re
+import datetime
+import logging
 
-# local impoorts
+logger = logging.getLogger(__name__)
+
+# local imports
 import sql
-
-# global conn
-# global cur
-# global races
-
-DATABASE = '/Users/scottroberts/Dropbox/Databases/RunningLog/races.sqlite'
+from config import DATABASE
 
 app = Flask(__name__)
 
@@ -95,7 +94,7 @@ def ListWorkouts():
 def ChangeWorkout(id):
     conn = get_db()
     cur = conn.cursor()
-    print('id = ', id)
+    logger.debug('ChangeWorkout id=%s', id)
     wo = sql.get_workout(cur, id)
 
     val_date = wo[0]
@@ -111,7 +110,7 @@ def ChangeWorkout(id):
     val_repetition = wo[10]
     val_shoe = wo[11]
 
-    cur.execute('SELECT shortName FROM shoes where retired is 0 ORDER BY shortName')
+    cur.execute('SELECT shortName FROM shoes where retired = 0 ORDER BY shortName')
     shoe_list = [val_shoe]
     for row in cur:
         shoe_list.append(row[0])
@@ -122,7 +121,6 @@ def ChangeWorkout(id):
         wo_type_list.append(row[0])
 
     if request.method == "POST":
-        print('entered POST request')
         date = request.form['date']
         location = request.form['location']
         wo_type = request.form['wo_type']
@@ -136,15 +134,13 @@ def ChangeWorkout(id):
         repetition = request.form['repetition']
         shoes = request.form['shoes']
 
-        print('shoes = ', shoes)
         cur.execute('SELECT id FROM shoes WHERE shortName = ?', (shoes,))
         shoe_id = cur.fetchone()[0]
 
-        print('wo_type = ', wo_type)
         cur.execute('SELECT id FROM wo_type WHERE type = ?', (wo_type,))
         wo_type_id = cur.fetchone()[0]
 
-        sql.change_workout(id, conn, cur, date, location, wo_type_id, objective, notes, distance, recovery, easy, threshold, interval, repetition, shoe_id)
+        sql.change_workout(conn, cur, id, date, location, wo_type_id, objective, notes, distance, recovery, easy, threshold, interval, repetition, shoe_id)
 
         [intro, thead, tbody, summary] = sql.get_workouts(cur)
         title = 'Listing of Workouts'
@@ -203,7 +199,7 @@ def ChangeHealth(id):
         HR = request.form['HR']
         notes = request.form['notes']
 
-        sql.change_health(conn, id, cur, date, weight, waist, waist_bb, hips, chest, notes, HR)
+        sql.change_health(conn, cur, id, date, weight, waist, waist_bb, hips, chest, notes, HR)
 
         [intro, thead, tbody, summary] = sql.get_health_list(cur)
         title = 'Listing of Health'
@@ -220,7 +216,7 @@ def ChangeHealth(id):
 def AddHealth():
     conn = get_db()
     cur = conn.cursor()
-    val_date = '2016-MM-DD'
+    val_date = datetime.date.today().strftime('%Y-%m-%d')
     val_weight = '0.0'
     val_waist = '0.0'
     val_waist_bb = '0.0'
@@ -230,7 +226,6 @@ def AddHealth():
     val_HR = 60
 
     if request.method == "POST":
-        print('entered Health POST request')
         date = request.form['date']
         weight = request.form['weight']
         waist = request.form['waist']
@@ -265,7 +260,7 @@ def AddWorkout():
     conn = get_db()
     cur = conn.cursor()
 
-    val_date = '2016-MM-DD'
+    val_date = datetime.date.today().strftime('%Y-%m-%d')
     val_location = 'Location...'
     val_objective = 'Objective'
     val_notes = 'Notes...'
@@ -276,7 +271,7 @@ def AddWorkout():
     val_interval = '0:00:00'
     val_repetition = '0:00:00'
 
-    cur.execute('SELECT shortName FROM shoes where retired is 0 ORDER BY shortName')
+    cur.execute('SELECT shortName FROM shoes where retired = 0 ORDER BY shortName')
     shoe_list = []
     for row in cur:
         shoe_list.append(row[0])
@@ -286,10 +281,9 @@ def AddWorkout():
     for row in cur:
         wo_type_list.append(row[0])
 
-    print('In homepage')
 
     if request.method == "POST":
-        print('entered POST request')
+        logger.debug('AddWorkout POST request')
         date = request.form['date']
         location = request.form['location']
         wo_type = request.form['wo_type']
@@ -303,21 +297,17 @@ def AddWorkout():
         repetition = request.form['repetition']
         shoes = request.form['shoes']
 
-        print('shoes = ', shoes)
+        logger.debug('shoes=%s', shoes)
         cur.execute('SELECT id FROM shoes WHERE shortName = ?', (shoes,))
         shoe_id = cur.fetchone()[0]
-        print('about to add workout\n')
 
-        print('wo_type = ', wo_type)
+        logger.debug('wo_type=%s', wo_type)
         cur.execute('SELECT id FROM wo_type WHERE type = ?', (wo_type,))
         wo_type_id = cur.fetchone()[0]
 
-        print('AddWorkout: recovery = %s, easy = %s, threshold = %s, interval = %s, repetition = %s' % (recovery, easy, threshold, interval, repetition))
 
         sql.add_workout(conn, cur, date, location, wo_type_id, objective, notes, distance, recovery, easy, threshold, interval, repetition, shoe_id)
 
-        print('Date =', date)
-        print('Shoes =', shoes)
         [intro, thead, tbody, summary] = sql.get_workouts(cur)
         title = 'Listing of Workouts'
         return render_template("ListInfo.html", title = title, intro = intro, thead = thead, tbody = tbody, summary = summary)
@@ -342,6 +332,23 @@ def ListShoes():
     intro = ''
     return render_template("ListInfo.html", title = title, intro = intro, thead = thead, tbody = tbody, summary = summary)
 
+@app.route('/ManageShoes', methods=["GET"])
+def ManageShoes():
+    conn = get_db()
+    cur = conn.cursor()
+    [intro, thead, tbody, summary] = sql.get_all_shoes(cur)
+    title = 'Manage Shoes'
+    return render_template("ListInfo.html", title=title, intro=intro, thead=thead, tbody=tbody, summary=summary)
+
+@app.route('/RetireShoe/<id>', methods=["GET"])
+def RetireShoe(id):
+    conn = get_db()
+    cur = conn.cursor()
+    sql.retire_shoe(conn, cur, id)
+    [intro, thead, tbody, summary] = sql.get_all_shoes(cur)
+    title = 'Manage Shoes'
+    return render_template("ListInfo.html", title=title, intro=intro, thead=thead, tbody=tbody, summary=summary)
+
 @app.route('/AddShoes', methods = ["GET", "POST"])
 def Addshoes():
 
@@ -356,7 +363,7 @@ def Addshoes():
         sql.add_shoes(conn, cur, shortName, longName)
         [intro,thead,tbody,summary] = sql.get_shoes(cur)
 
-    return(render_template("ShoeInput.html", intro = intro, thead = thead, tbody = tbody))
+    return render_template("ShoeInput.html", intro=intro, thead=thead, tbody=tbody, val_shortName='', val_longName='')
 
 @app.route('/Compare', methods = ["GET", "POST"])
 def compare():
@@ -368,20 +375,13 @@ def compare():
 
     if request.method == "POST":
         race1 = request.form['race1']
-        print('Race 1 =', race1)
         race2 = request.form['race2']
-        print('Race 2 =', race2)
         min_time = request.form['min_time']
-        print('Min Time =', min_time)
         max_time = request.form['max_time']
-        print('Max Time =', max_time)
         percent = request.form['percent']
-        print('Percent =', percent)
 
         id_1 = int(re.search(r'\d+',re.search(r'\<\d+\>',race1).group()).group())
-        print('id_1 = ',id_1)
         id_2 = int(re.search(r'\d+',re.search(r'\<\d+\>',race2).group()).group())
-        print('id_2 = ',id_2)
         [eventname1, date1] = sql.get_race_info(cur,id_1)
         [eventname2, date2] = sql.get_race_info(cur,id_2)
         [intro, thead, tbody, summary] = sql.compare_races(cur, eventname1, date1, eventname2, date2, min_time, max_time, float(percent)/100)
@@ -392,11 +392,12 @@ def compare():
 
 @app.route('/user/<username>', methods = ["GET", "POST"])
 def show_user_races(username):
-    print('username = ', username)
+    logger.debug('show_user_races: %s', username)
     cur = get_db().cursor()
     [intro, thead, tbody, summary] = sql.get_races_for_athlete(cur, username)
     title = 'Races by Athlete'
     return render_template("ListInfo.html", title = title, intro = intro, thead = thead, tbody = tbody, summary = summary)
 
 if __name__ == "__main__":
-    app.run(debug = False, host='0.0.0.0', port=8080, passthrough_errors=True)
+    # TODO: set debug=False before deploying to production
+    app.run(debug=True, host='0.0.0.0', port=8080, passthrough_errors=True)

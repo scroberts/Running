@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# LEGACY: This file pre-dates the Flask/SQLite architecture and is not imported
+# or called by any active code. Kept for historical reference only.
 
 # References
 # http://nedbatchelder.com/text/iter/iter.html#31
@@ -16,7 +18,7 @@ import sql
 import matplotlib.pyplot as plt
 from matplotlib.dates import drange
 
-DATABASE = '/Users/sroberts/Dropbox/TMT/Python/Running/db/races.sqlite'
+from config import DATABASE
 
 app = Flask(__name__)
 

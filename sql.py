@@ -4,10 +4,14 @@ import re
 import csv
 import sqlite3
 import time
-#import datetime
+import logging
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 import numpy as np
-from markupsafe import Markup
+
+logger = logging.getLogger(__name__)
+from markupsafe import Markup, escape
+from urllib.parse import quote as urlquote
 
 # from datetime import time
 # from datetime import datetime, timedelta
@@ -34,7 +38,9 @@ align_wrap_cen_style = Alignment(wrap_text=True, vertical='center')
 
 def parse_datestr(datestr):
     m = re.search(r'(^\d*)-(\d*)-(\d*)', datestr)
-    return([m.group(1), m.group(2), m.group(3)])
+    if not m:
+        raise ValueError(f'Cannot parse date string: {datestr!r}')
+    return [m.group(1), m.group(2), m.group(3)]
 
 def scrub_timestr(timestr):
     m = re.search(r'(^\d*):(\d*):(\d*)', timestr)
@@ -71,7 +77,7 @@ def get_running_dict(conn, cur):
 #         print('date = ', row[1])
         myRun[idx]['id'] = row[0]
         myRun[idx]['date'] = datetime.strptime(row[1],'%Y-%m-%d')
-        myRun[idx]['weekday'] = 'Monday'
+        myRun[idx]['weekday'] = myRun[idx]['date'].strftime('%A')
         myRun[idx]['description'] = row[2]
         myRun[idx]['objective'] = row[3]
         myRun[idx]['notes'] = row[4]
@@ -96,7 +102,7 @@ def read_ss(sheet, conn, cur):
     dicrow = 1
 
     while sheet.cell(row=ssrow, column=1).value:
-        print('\ndate = ',sheet.cell(row=ssrow, column=1).value)
+        logger.debug('date = %s', sheet.cell(row=ssrow, column=1).value)
 
         # assign columns from spreadsheet to variables
         date = sheet.cell(row = ssrow, column = 1).value
@@ -141,8 +147,12 @@ def read_ss(sheet, conn, cur):
         cur.execute('SELECT id FROM shoes WHERE shortName = ?', (shoes,))
         shoe_id = cur.fetchone()[0]
 
-        print('times ', time, recovery, easy, threshold, interval, repetition)
-        add_workout(conn, cur, date, location, objective, notes, distance, recovery, easy, threshold, interval, repetition, shoe_id)
+        cur.execute('SELECT id FROM wo_type ORDER BY id LIMIT 1')
+        result = cur.fetchone()
+        wo_type_id = result[0] if result else 1
+
+        logger.debug('times %s %s %s %s %s %s', time, recovery, easy, threshold, interval, repetition)
+        add_workout(conn, cur, date, location, wo_type_id, objective, notes, distance, recovery, easy, threshold, interval, repetition, shoe_id)
 
         ssrow += 1
         dicrow += 1
@@ -291,68 +301,63 @@ def write_ss(conn, cur, xlfile):
         ws.cell(row = ssrow, column = col).value = row[col-1]
         ws.cell(row = ssrow, column = col).alignment =  align_wrap_cen_style
 
-#         Set column widths
-        ws.column_dimensions["A"].width = 8.0
-        ws.column_dimensions["B"].width = 20.0
-        ws.column_dimensions["C"].width = 10.0
-        ws.column_dimensions["D"].width = 40.0
-        ws.column_dimensions["E"].width = 10.0
-        ws.column_dimensions["F"].width = 10.0
-        ws.column_dimensions["G"].width = 10.0
-        ws.column_dimensions["H"].width = 10.0
-        ws.column_dimensions["I"].width = 10.0
-        ws.column_dimensions["J"].width = 10.0
-        ws.column_dimensions["K"].width = 10.0
-        ws.column_dimensions["L"].width = 10.0
-        ws.column_dimensions["M"].width = 10.0
-        ws.column_dimensions["N"].width = 10.0
-        ws.column_dimensions["O"].width = 20.0
+    # Set column widths
+    ws.column_dimensions["A"].width = 8.0
+    ws.column_dimensions["B"].width = 20.0
+    ws.column_dimensions["C"].width = 10.0
+    ws.column_dimensions["D"].width = 40.0
+    ws.column_dimensions["E"].width = 10.0
+    ws.column_dimensions["F"].width = 10.0
+    ws.column_dimensions["G"].width = 10.0
+    ws.column_dimensions["H"].width = 10.0
+    ws.column_dimensions["I"].width = 10.0
+    ws.column_dimensions["J"].width = 10.0
+    ws.column_dimensions["K"].width = 10.0
+    ws.column_dimensions["L"].width = 10.0
+    ws.column_dimensions["M"].width = 10.0
+    ws.column_dimensions["N"].width = 10.0
+    ws.column_dimensions["O"].width = 20.0
 
-        # Save the spreadsheet
-        wb.save(xlfile)
+    # Save the spreadsheet
+    wb.save(xlfile)
 
-def secs(str_time):
+def secs(time_str):
     # Returns number of seconds in time string formatted as HH:MM:SS
-    x=time.strptime(str_time,'%H:%M:%S')
-    return(timedelta(hours=x.tm_hour,minutes=x.tm_min,seconds=x.tm_sec).total_seconds())
+    x = time.strptime(time_str, '%H:%M:%S')
+    return timedelta(hours=x.tm_hour, minutes=x.tm_min, seconds=x.tm_sec).total_seconds()
 
-def str_time(secs):
+def str_time(total_seconds):
     # Returns time string for a number of seconds
-    return(str(timedelta(seconds=round(secs))))
+    return str(timedelta(seconds=round(total_seconds)))
 
 def load_csv_health(conn, cur, csvfilename):
     try:
         with open(csvfilename) as csvfile:
-            print('opened file')
             reader = csv.DictReader(csvfile)
             for row in reader:
-                print(row['Date'], row['Weight (kg)'], row['Waist'], row['Waist at bb'], row['Hip'], row['Chest'], row['Notes'], row['HR'])
                 try:
                     add_health(conn, cur, row['Date'], row['Weight (kg)'], row['Waist'], \
                         row['Waist at bb'], row['Hip'], row['Chest'], row['Notes'], row['HR'])
                 except Exception as e:
-                    print('Error importing CSV file for Health')
-                    print(f"An unexpected error occurred: {e}")
+                    logger.error('Error importing CSV file for Health: %s', e)
                     exit(1)
         conn.commit()
-        print('Succeeded')
+        logger.info('Health CSV import succeeded')
     except Exception:
-        print('Failed')
+        logger.error('Health CSV import failed')
 
 def add_health(conn, cur, date, weight, smallWaist, bbWaist, hip, chest, notes, HR):
     try:
         cur.execute('INSERT INTO Health (date, weight, smallWaist, bbWaist, hip, chest, notes, HR) VALUES ( ?,?,?,?,?,?,?,? )', ( date, weight, smallWaist, bbWaist, hip, chest, notes, HR))
     except Exception as e:
-        print('Error - unable to enter heath, date = ', date)
-        print(f"An unexpected error occurred: {e}")
+        logger.error('Error - unable to enter health, date=%s: %s', date, e)
     conn.commit()
 
-def change_health(conn, id, cur, date, weight, smallWaist, bbWaist, hip, chest, notes, HR):
+def change_health(conn, cur, id, date, weight, smallWaist, bbWaist, hip, chest, notes, HR):
     try:
         cur.execute('UPDATE Health SET date=?, weight=?, smallWaist=?, bbWaist=?, hip=?, chest=?, notes=?, HR=? WHERE id = ?', ( date, weight, smallWaist, bbWaist, hip, chest, notes, HR, id))
     except Exception as e:
-        print('Error - unable to update heath record, id = ', id)
-        print(f"An unexpected error occurred: {e}")
+        logger.error('Error - unable to update health record, id=%s: %s', id, e)
     conn.commit()
 
 def get_health(cur, id):
@@ -368,11 +373,10 @@ def get_health_list(cur):
     tbody = []
     for row in cur:
         row = list(row)
-        row[0] = Markup('<strong><a href=http://localhost:8080/ChangeHealth/%s>%s</a></strong>' % (row[0],row[0]))
+        row[0] = Markup('<strong><a href=/ChangeHealth/%s>%s</a></strong>' % (row[0], row[0]))
         tbody.append(row)
-#         print(row)
     summary = 'Total of %d Entries' % len(tbody)
-    return( [intro,thead,tbody, summary] )
+    return [intro, thead, tbody, summary]
 
 # def get_recent_weight(cur):
 
@@ -394,7 +398,6 @@ def get_weight_report(cur):
     weightlist = []
     for strdate in dates:
         # get date span of week
-        print(f"Strdate = {strdate}")
         date = datetime.strptime(strdate,'%Y-%m-%d')
         datelist.append(date)
         date_3_days_ago = date - timedelta(days=3)
@@ -402,7 +405,6 @@ def get_weight_report(cur):
         #print(date.strftime('%Y-%m-%d'), date_3_days_ago.strftime('%Y-%m-%d'), date_3_days_future.strftime('%Y-%m-%d'))
         start = date_3_days_ago.strftime('%Y-%m-%d')
         end = date_3_days_future.strftime('%Y-%m-%d')
-        print(start, end )
         try:
             cur.execute('SELECT AVG(weight) FROM Health WHERE (date between ? AND ?) AND weight > 0.0', (start, end))
 #             for row in cur:
@@ -410,7 +412,7 @@ def get_weight_report(cur):
 #             weightlist.append(row[0])
             weightlist.append(cur.fetchone())
         except Exception as e:
-        	print(f"An unexpected error occurred: {e}")
+        	logger.error('Weight report query error: %s', e)
 
     # now print
     plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
@@ -422,13 +424,38 @@ def get_weight_report(cur):
 
 
 
+def retire_shoe(conn, cur, shoe_id):
+    cur.execute('SELECT retired FROM Shoes WHERE id = ?', (shoe_id,))
+    row = cur.fetchone()
+    if row:
+        cur.execute('UPDATE Shoes SET retired = ? WHERE id = ?', (0 if row[0] else 1, shoe_id))
+        conn.commit()
+
+def get_all_shoes(cur):
+    cur.execute(
+        'SELECT Shoes.id, Shoes.shortName, Shoes.longName, Shoes.retired, '
+        'COALESCE(ROUND(SUM(Log.dist), 1), 0), COALESCE(MAX(Log.date), "never") '
+        'FROM Shoes LEFT JOIN Log ON Log.shoeID = Shoes.id '
+        'GROUP BY Shoes.id ORDER BY Shoes.retired, Shoes.shortName'
+    )
+    intro = ['Click Retire or Unretire to change a shoe\'s status']
+    thead = ['Short Name', 'Long Name', 'Status', 'Distance (km)', 'Last Used', 'Action']
+    tbody = []
+    for row in cur:
+        shoe_id, short, long_name, retired, dist, last = row
+        status = 'Retired' if retired else 'Active'
+        label = 'Unretire' if retired else 'Retire'
+        action = Markup('<a href="/RetireShoe/%d">%s</a>' % (shoe_id, label))
+        tbody.append([escape(short), escape(long_name), status, dist, last, action])
+    summary = 'Total of %d shoes' % len(tbody)
+    return [intro, thead, tbody, summary]
+
 def add_shoes(conn, cur, shortName, longName):
-    print('Adding new shoes', shortName, longName)
+    logger.info('Adding new shoes: %s / %s', shortName, longName)
     try:
         cur.execute('INSERT INTO Shoes (shortName, longName, retired) VALUES ( ?,?,? )', ( shortName, longName, 0 ))
     except Exception as e:
-        print('Error - check if shoe already exists in table')
-        print(f"An unexpected error occurred: {e}")
+        logger.error('Error adding shoe (may already exist): %s', e)
     conn.commit()
 
 def get_shoes(cur):
@@ -449,6 +476,22 @@ def get_shoes(cur):
     summary = 'Total of %d Entries' % len(tbody)
     return( [intro,thead,tbody,summary] )
 
+@dataclass
+class WorkoutData:
+    isodate_str: str
+    total_time_str: str
+    total_time: float
+    pace: str
+    secs_pace: float
+    secs_recovery: float
+    secs_easy: float
+    secs_threshold: float
+    secs_interval: float
+    secs_repetition: float
+    p8020: float
+    jd_int: float
+
+
 def get_workout_calculated_data(date, distance, recovery, easy, threshold, interval, repetition):
     secs_recovery = secs(recovery)
     secs_easy = secs(easy)
@@ -458,36 +501,40 @@ def get_workout_calculated_data(date, distance, recovery, easy, threshold, inter
 
     total_time = secs_recovery + secs_easy + secs_threshold + secs_interval + secs_repetition
     total_time_str = str_time(total_time)
-    if float(distance) > 0.0:
-        secs_pace = total_time/float(distance)
-    else:
-        secs_pace = 0.0
-
+    secs_pace = (total_time / float(distance)) if float(distance) > 0.0 else 0.0
     pace = str_time(secs_pace)
 
-    # Calculate Percent 80/20
-    p8020 = 100.0 * (secs_recovery + secs_easy)/total_time
+    p8020 = (100.0 * (secs_recovery + secs_easy) / total_time) if total_time > 0 else 0.0
 
-    # Calculate Jack Daniels Intensity
-    recovery_int = secs_recovery/60.0 * 0.15
-    easy_int = secs_easy/60.0 * 0.2
-    tempo_int = secs_threshold/60.0 * 0.6
-    interval_int = secs_interval/60.0 * 1.0
-    repetition_int = secs_repetition/60.0 * 1.5
-    jd_int = recovery_int + easy_int + tempo_int + interval_int + repetition_int
+    jd_int = (secs_recovery / 60.0 * 0.15 +
+              secs_easy / 60.0 * 0.2 +
+              secs_threshold / 60.0 * 0.6 +
+              secs_interval / 60.0 * 1.0 +
+              secs_repetition / 60.0 * 1.5)
 
-    isodate = datetime.strptime(date,'%Y-%m-%d').isocalendar()
-    year = '%s' % isodate[0]
-    week = '%s' % isodate[1]
-    day = '%s' % isodate[2]
-    isodatestr = year + '-' + week.zfill(2) + '-' + day
-    return([isodatestr,total_time_str, total_time, pace, secs_pace, secs_recovery, secs_easy, secs_threshold, secs_interval, secs_repetition, p8020, jd_int])
+    iso = datetime.strptime(date, '%Y-%m-%d').isocalendar()
+    isodatestr = '%s-%s-%s' % (iso[0], str(iso[1]).zfill(2), iso[2])
+
+    return WorkoutData(
+        isodate_str=isodatestr,
+        total_time_str=total_time_str,
+        total_time=total_time,
+        pace=pace,
+        secs_pace=secs_pace,
+        secs_recovery=secs_recovery,
+        secs_easy=secs_easy,
+        secs_threshold=secs_threshold,
+        secs_interval=secs_interval,
+        secs_repetition=secs_repetition,
+        p8020=p8020,
+        jd_int=jd_int,
+    )
 
 
-def change_workout(id, conn, cur, date, location, wo_type_id, objective, notes, distance, recovery, easy, threshold, interval, repetition, shoe_id):
-    print('Changing Workout ID: ',id)
+def change_workout(conn, cur, id, date, location, wo_type_id, objective, notes, distance, recovery, easy, threshold, interval, repetition, shoe_id):
+    logger.info('Changing workout ID: %s', id)
 
-    [isodatestr, total_time_str, total_time, pace, secs_pace, secs_recovery, secs_easy, secs_threshold, secs_interval, secs_repetition, p8020, jd_int] = get_workout_calculated_data(date, distance, recovery, easy, threshold, interval, repetition)
+    wd = get_workout_calculated_data(date, distance, recovery, easy, threshold, interval, repetition)
 
     try:
         cur.execute('UPDATE Log SET date=?, location=?, wo_type=?, objective=?, notes=?, dist=?, \
@@ -495,28 +542,30 @@ def change_workout(id, conn, cur, date, location, wo_type_id, objective, notes, 
                     recovery_secs = ?, easy = ?, easy_secs = ?, threshold = ?, \
                     threshold_secs = ?, interval = ?, interval_secs = ?, repetition = ?, \
                     repetition_secs = ?, p8020 = ?, jd_int = ?, shoeID = ?, isodate = ? WHERE id = ?',
-                    (date, location, wo_type_id, objective, notes, float(distance), total_time_str,
-                    total_time, pace, secs_pace, recovery, secs_recovery, easy, secs_easy,
-                    threshold, secs_threshold, interval, secs_interval, repetition,
-                    secs_repetition, p8020, jd_int, shoe_id, isodatestr, id ))
+                    (date, location, wo_type_id, objective, notes, float(distance),
+                    wd.total_time_str, wd.total_time, wd.pace, wd.secs_pace,
+                    recovery, wd.secs_recovery, easy, wd.secs_easy,
+                    threshold, wd.secs_threshold, interval, wd.secs_interval,
+                    repetition, wd.secs_repetition, wd.p8020, wd.jd_int,
+                    shoe_id, wd.isodate_str, id))
         conn.commit()
 
     except Exception as e:
-        print('Error - log entry couldn\'t be changed')
-        print(f"An unexpected error occurred: {e}")
+        logger.error('Error updating workout id=%s: %s', id, e)
 
 def add_workout(conn, cur, date, location, wo_type_id, objective, notes, distance, recovery, easy, threshold, interval, repetition, shoe_id):
-    print('Adding Workout for Date: ',date)
+    logger.info('Adding workout for date: %s', date)
 
-    [isodatestr,total_time_str, total_time, pace, secs_pace, secs_recovery, secs_easy, secs_threshold, secs_interval, secs_repetition, p8020, jd_int] = get_workout_calculated_data(date, distance, recovery, easy, threshold, interval, repetition)
-
-#     print('Jack Daniels Intensity = ',jd_int)
-#     print('Pace = ', pace)
-#     print('SQL AddWorkout: recovery = %s, easy = %s, threshold = %s, interval = %s, repetition = %s' % (recovery, easy, threshold, interval, repetition))
+    wd = get_workout_calculated_data(date, distance, recovery, easy, threshold, interval, repetition)
 
     cur.execute('INSERT INTO Log (date, location, wo_type, objective, notes, dist, time, time_secs, pace, pace_secs, recovery, recovery_secs, easy, easy_secs, threshold, threshold_secs, interval, interval_secs, repetition, repetition_secs, p8020, jd_int, shoeID, isodate) VALUES \
                 ( ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,? )',
-        ( date, location, wo_type_id, objective, notes, float(distance), total_time_str, total_time, pace, secs_pace, recovery, secs_recovery, easy, secs_easy, threshold, secs_threshold, interval, secs_interval, repetition, secs_repetition, p8020, jd_int, shoe_id, isodatestr ))
+        (date, location, wo_type_id, objective, notes, float(distance),
+         wd.total_time_str, wd.total_time, wd.pace, wd.secs_pace,
+         recovery, wd.secs_recovery, easy, wd.secs_easy,
+         threshold, wd.secs_threshold, interval, wd.secs_interval,
+         repetition, wd.secs_repetition, wd.p8020, wd.jd_int,
+         shoe_id, wd.isodate_str))
 
     conn.commit()
 
@@ -545,14 +594,12 @@ def get_workouts(cur):
     thead = ['ID','Run Date','Workout Description', 'Dist', 'Time', 'Pace', 'Time in Zones',
             '80/20', 'JD Intensity', 'Shoes']
 
-    print(intro)
-
 #     f = open('workout_listing.txt','w')
 
     tbody = []
     for row in cur:
         row = list(row)
-        id_tag = Markup('<strong><a href=http://localhost:8080/ChangeWorkout/%s>%s</a></strong>' % (row[0],row[0]))
+        id_tag = Markup('<strong><a href=/ChangeWorkout/%s>%s</a></strong>' % (row[0], row[0]))
         date = Markup('%s' % row[1])
         location = row[2]
         objective = row[3]
@@ -576,7 +623,10 @@ def get_workouts(cur):
             objective = ''
         if notes is None:
             notes = ''
-        description = Markup('<strong>Location: </strong>' + location + '<br /><strong>WO Type: </strong>'+ wo_type_text + '<br /><strong>Objective: </strong>' + objective + '<br /><strong>Notes: </strong>' + notes)
+        description = (Markup('<strong>Location: </strong>') + escape(location) +
+                       Markup('<br /><strong>WO Type: </strong>') + escape(wo_type_text) +
+                       Markup('<br /><strong>Objective: </strong>') + escape(objective) +
+                       Markup('<br /><strong>Notes: </strong>') + escape(notes))
 
         zones = zones_str(recovery, easy, threshold, interval, repetition)
 
@@ -592,35 +642,34 @@ def get_workouts(cur):
     return([intro, thead, tbody, summary])
 
 def zones_str(recovery, easy, threshold, interval, repetition):
-    zones = ''
+    zones = Markup('')
     if recovery != '0:00:00':
-        zones += '<strong>Recovery: </strong>' + recovery + '\n'
+        zones += Markup('<strong>Recovery: </strong>') + escape(recovery) + Markup('\n')
     if easy != '0:00:00':
-        zones += '<strong>Easy: </strong>' + easy + '\n'
+        zones += Markup('<strong>Easy: </strong>') + escape(easy) + Markup('\n')
     if threshold != '0:00:00':
-        zones += '<strong>Threshold: </strong>' + threshold + '\n'
+        zones += Markup('<strong>Threshold: </strong>') + escape(threshold) + Markup('\n')
     if interval != '0:00:00':
-        zones += '<strong>Interval: </strong>' + interval + '\n'
+        zones += Markup('<strong>Interval: </strong>') + escape(interval) + Markup('\n')
     if repetition != '0:00:00':
-        zones += '<strong>Repetition: </strong>' + repetition + '\n'
-    return(Markup(zones))
+        zones += Markup('<strong>Repetition: </strong>') + escape(repetition) + Markup('\n')
+    return zones
 
 def add_event(conn, cur, racename, dist, min_elev, max_elev, gain_elev):
-    print('Adding Event: ',racename)
+    logger.info('Adding event: %s', racename)
     try:
         cur.execute('INSERT INTO Events (eventname, dist, min_elev, max_elev, gain_elev) VALUES ( ?,?,?,?,? )', ( racename, dist, min_elev, max_elev, gain_elev ))
     except Exception as e:
-        print('Event already exists in table')
-        print(f"An unexpected error occurred: {e}")
+        logger.error('Event already exists or error: %s', e)
     conn.commit()
 
 def test_load_result(conn, cur, csvfilename, eventname, date, dist, min_elev, max_elev, gain_elev):
-    print('Test loading results for ',eventname)
+    logger.info('Test loading results for %s', eventname)
 
     cur.execute('SELECT id FROM Events WHERE (eventname = ?) LIMIT 1', ( eventname , ))
     eventID = cur.fetchone()[0]
 
-    print('Found eventID:', eventID, ' for eventname')
+    logger.debug('Found eventID %s for %s', eventID, eventname)
 
 #     cur.execute('SELECT id FROM Races WHERE eventID = ? AND date = ? LIMIT 1', ( eventID , date ))
 #     raceID = cur.fetchone()[0]
@@ -628,13 +677,12 @@ def test_load_result(conn, cur, csvfilename, eventname, date, dist, min_elev, ma
 #     print('Found raceID:', raceID, ' for eventID')
 
     with open(csvfilename) as csvfile:
-        reader = csv.DictReader(csvfile)
-        for row in reader:
-            print(row['name'], row['age_group'], row['club'], row['hometown'], scrub_timestr(row['time']), secs(row['time']), row['pace'])
+        for row in csv.DictReader(csvfile):
+            logger.debug('test row: %s %s %s', row.get('name'), row.get('time'), row.get('pace'))
 
 
 def load_result(conn, cur, csvfilename, eventname, date, dist, min_elev, max_elev, gain_elev):
-    print('Loading results for ',eventname)
+    logger.info('Loading results for %s', eventname)
 
     cur.execute('SELECT id FROM Events WHERE (eventname = ?) LIMIT 1', ( eventname , ))
     eventID = cur.fetchone()[0]
@@ -642,34 +690,30 @@ def load_result(conn, cur, csvfilename, eventname, date, dist, min_elev, max_ele
     try:
         cur.execute('INSERT INTO Races (eventID, date) VALUES (?,?) ', ( eventID , date, ))
     except Exception as e:
-        print('Racename already exists in table')
-        print(f"An unexpected error occurred: {e}")
+        logger.error('Race already exists or error: %s', e)
         exit(0)
 
     cur.execute('SELECT id FROM Races WHERE eventID = ? AND date = ? LIMIT 1', ( eventID , date ))
     raceID = cur.fetchone()[0]
 
     with open(csvfilename) as csvfile:
-        reader = csv.DictReader(csvfile)
-        for row in reader:
-            try:
-                cur.execute('INSERT INTO Athletes (name, age_group, club, hometown) VALUES ( ?, ?, ?, ? )', ( row['name'], row['age_group'], row['club'], row['hometown'],))
-            except Exception as e:
-                print(f"An unexpected error occurred: {e}")
+        rows = list(csv.DictReader(csvfile))
+
+    for row in rows:
+        try:
+            cur.execute('INSERT INTO Athletes (name, age_group, club, hometown) VALUES ( ?, ?, ?, ? )', ( row['name'], row['age_group'], row['club'], row['hometown'],))
+        except Exception as e:
+            logger.error('Error inserting athlete: %s', e)
     conn.commit()
 
-    with open(csvfilename) as csvfile:
-        reader = csv.DictReader(csvfile)
-        for row in reader:
-            cur.execute('SELECT id FROM Athletes WHERE (name = ? AND hometown = ?) LIMIT 1', ( row['name'], row['hometown'], ))
-            AthleteID = cur.fetchone()[0]
-            print(AthleteID, raceID, row['time'], row['pace'] )
-            try:
-                cur.execute('INSERT INTO RaceTimes (athleteID, raceID, str_time, sec_time, pace) VALUES ( ?, ?, ?, ?, ?)', ( AthleteID, raceID, scrub_timestr(row['time']), secs(row['time']), row['pace'] ) )
-            except Exception as e:
-                print('Error adding to RaceTimes')
-                print(f"An unexpected error occurred: {e}")
-                exit(1)
+    for row in rows:
+        cur.execute('SELECT id FROM Athletes WHERE (name = ? AND hometown = ?) LIMIT 1', ( row['name'], row['hometown'], ))
+        AthleteID = cur.fetchone()[0]
+        try:
+            cur.execute('INSERT INTO RaceTimes (athleteID, raceID, str_time, sec_time, pace) VALUES ( ?, ?, ?, ?, ?)', ( AthleteID, raceID, scrub_timestr(row['time']), secs(row['time']), row['pace'] ) )
+        except Exception as e:
+            logger.error('Error adding to RaceTimes: %s', e)
+            exit(1)
     conn.commit()
 
 def get_race_info(cur, race_id):
@@ -688,25 +732,19 @@ def get_races_for_athlete(cur, name):
 
     intro = [name]
     thead = ['Event','Date','Time', 'Pace']
-    print(intro)
-
     tbody = []
     for row in cur:
         tbody.append(row)
-        print(row)
 
     summary = 'Total of %d Races' % len(tbody)
     return([intro, thead, tbody, summary])
 
 
 def compare_races(cur, eventname1, date1, eventname2, date2, racetime1, racetime2, max_percent):
-    print('\n\nPeople who ran both races: [', eventname1, date1, '] and [', eventname2, date2, ']\n with times between', racetime1, 'and', racetime2, 'where difference in time is less than', max_percent * 100, '%')
     intro = ('People who ran both races:', \
              '[%s on %s] and [%s on %s]' % (eventname1, date1, eventname2, date2), \
              'with times between %s and %s' % (racetime1, racetime2), \
              'where difference in time is less than %d%s' % (max_percent * 100, '%'))
-    print(intro)
-
     cur.execute('DROP TABLE IF EXISTS race1 ')
     cur.execute('DROP TABLE IF EXISTS race2 ')
     cur.execute('DROP TABLE IF EXISTS race_compare  ')
@@ -718,9 +756,7 @@ def compare_races(cur, eventname1, date1, eventname2, date2, racetime1, racetime
 
     cur.execute('SELECT * FROM race1')
     rows = cur.fetchall()
-    print('\nrace1\n')
-    for row in rows:
-        print('%s\t%s\t%s\t%s' % row)
+    logger.debug('race1 rows: %d', len(rows))
 
     cur.execute('CREATE TABLE race2 AS SELECT athleteID, str_time, sec_time, pace FROM RaceTimes \
         JOIN Races ON Races.id = RaceTimes.raceID \
@@ -728,9 +764,8 @@ def compare_races(cur, eventname1, date1, eventname2, date2, racetime1, racetime
         (eventname2, date2, ))
 
     cur.execute('SELECT * FROM race2')
-    print('\nrace2\n')
-    for row in rows:
-        print('%s\t%s\t%s\t%s' % row)
+    rows = cur.fetchall()
+    logger.debug('race2 rows: %d', len(rows))
 
 #     cur.execute('CREATE TABLE race2 AS SELECT athleteID, str_time, sec_time, pace FROM RaceTimes \
 #         JOIN Races WHERE Races.eventID = Events.id AND Events.eventname = ? AND Races.date = ? AND Races.id = RaceTimes.raceID', \
@@ -757,13 +792,12 @@ def compare_races(cur, eventname1, date1, eventname2, date2, racetime1, racetime
     for row in rows:
 #         print('%d\t%20s\t%s\t%d\t%s\t%d\t%5d\t%.4f' % row)
         percent = '%.2f' % (row[7]*100,)
-        name_tag = Markup('<strong><a href=http://localhost:8080/user/%s>%s</a></strong>' % (row[1].replace(' ','%20'), row[1]))
+        name_tag = Markup('<strong><a href=/user/%s>%s</a></strong>' % (urlquote(row[1]), escape(row[1])))
         tbody.append([row[0], name_tag, row[2], row[3], row[4], row[5], row[6], percent])
         diffs.append(row[6])
     mean = np.mean(diffs)
     std = np.std(diffs)
 
-    print('\nmean = %.2f, standard deviation = %.2f [seconds]\n\n' % (mean, std))
     summary = 'mean = %.2f, standard deviation = %.2f [seconds]' % (mean, std)
 
 
@@ -781,13 +815,12 @@ def get_races(cur):
     cur.execute('SELECT Events.eventname, Events.dist, Races.date, Races.id FROM Events JOIN Races WHERE Races.eventID = Events.id ORDER BY Events.eventname, Races.date')
     for row in cur:
         races.append(row[0] + ' : ' + row[2] + ' <' + str(row[3]) + '>')
-        print(row)
+        logger.debug('get_races row=%s', row)
     return(races)
 
 def load_database(db_name):
     conn = sqlite3.connect(db_name)
     cur = conn.cursor()
-    print(conn,cur)
     return([conn, cur])
 
 def get_log_sum(vals):
@@ -818,27 +851,31 @@ def get_log_sums_bygregdate(cur, datestr):
 
 def get_log_sums_for_all_weeks(conn, cur):
     # List workouts by week
+    conn.create_function("NODAY", 1, noday)
+    conn.create_function("NODAYMATCH", 1, nodaymatch)
     cur.execute('SELECT noday(isodate), nodaymatch(isodate) FROM Log GROUP BY noday(isodate) ORDER by nodaymatch(isodate) DESC')
     curlist = cur.fetchall()
 
     tbody = []
     for row in curlist:
-        noday = row[0]
-        nodaymatch = row[1]
-        tbody.append(get_log_sums_byisodate(cur, nodaymatch))
-        print('sums for :', noday, get_log_sums_byisodate(cur, nodaymatch))
-    return
+        noday_str = row[0]
+        nodaymatch_str = row[1]
+        tbody.append([noday_str] + get_log_sums_byisodate(cur, nodaymatch_str))
+    return tbody
 
 def get_log_sums_for_all_months(conn, cur):
     # list workouts by month
+    conn.create_function("NODAY", 1, noday)
+    conn.create_function("NODAYMATCH", 1, nodaymatch)
     cur.execute('SELECT noday(date), nodaymatch(date) FROM Log GROUP BY noday(date) ORDER by noday(date) DESC')
     curlist = cur.fetchall()
 
+    tbody = []
     for row in curlist:
-        noday = row[0]
-        nodaymatch = row[1]
-        print('sums for :', noday, get_log_sums_bygregdate(cur, nodaymatch))
-    return
+        noday_str = row[0]
+        nodaymatch_str = row[1]
+        tbody.append([noday_str] + get_log_sums_bygregdate(cur, nodaymatch_str))
+    return tbody
 
 
 def get_log_sums_over_months(cur, month_ago_nearest, month_ago_furthest):
@@ -864,7 +901,7 @@ def get_log_sums_over_months(cur, month_ago_nearest, month_ago_furthest):
     total_secs = vals[2]
     recovery_secs = vals[3]
     easy_secs = vals[4]
-    p8020 = '%.1f' % (100.0 * (recovery_secs + easy_secs) / total_secs)
+    p8020 = '%.1f' % ((100.0 * (recovery_secs + easy_secs) / total_secs) if total_secs else 0.0)
 
     dist = '%.1f' % (vals[0]/months)
     intensity = '%.1f' % (vals[1]/months)
@@ -888,7 +925,7 @@ def get_dist_by_type(cur, disttype, datetype, startdatematch, enddatematch):
     elif datetype == "Date":
         cur.execute('SELECT sum(dist) \
         FROM Log JOIN wo_type ON Log.wo_type = wo_type.id \
-        WHERE isodate between ? and ?  and type == ?', (startdatematch, enddatematch, disttype))
+        WHERE date between ? and ?  and type == ?', (startdatematch, enddatematch, disttype))
     else:
         exit(0)
 
@@ -927,7 +964,7 @@ def get_log_sums_over_weeks(cur, week_ago_nearest, week_ago_furthest):
     total_secs = vals[2]
     recovery_secs = vals[3]
     easy_secs = vals[4]
-    p8020 = '%.1f' % (100.0 * (recovery_secs + easy_secs) / total_secs)
+    p8020 = '%.1f' % ((100.0 * (recovery_secs + easy_secs) / total_secs) if total_secs else 0.0)
 
     dist = '<strong>Run: </strong>' + str(run_dist)
     dist += '<br /><strong>Ride: </strong>' + str(ride_dist)
@@ -946,82 +983,54 @@ def get_log_sums_over_weeks(cur, week_ago_nearest, week_ago_furthest):
 
     return([dist, td_str, zones, intensity, p8020])
 
-def get_log_52weeks(conn, cur):
-
+def _register_date_functions(conn):
     conn.create_function("NODAY", 1, noday)
+    conn.create_function("NODAYMATCH", 1, nodaymatch)
 
-    intro = ['Weekly Stats']
-    thead = ['Description','Dist.','Time','Time in Zones','Int.','%80/20']
-    summary = ''
+def _build_stats_table(conn, cur, title, sums_fn, rows):
+    _register_date_functions(conn)
+    thead = ['Description', 'Dist.', 'Time', 'Time in Zones', 'Int.', '%80/20']
+    tbody = [[label] + sums_fn(cur, near, far) for label, near, far in rows]
+    return [[title], thead, tbody, '']
 
-    tbody = []
-    for week in range (1,53):
-        tbody.append(['%d weeks ago' % week] + get_log_sums_over_weeks(cur, week, week))
-
-    return([intro, thead, tbody, summary])
+def get_log_52weeks(conn, cur):
+    return _build_stats_table(conn, cur, 'Weekly Stats', get_log_sums_over_weeks,
+        [('%d weeks ago' % w, w, w) for w in range(1, 53)])
 
 def get_log_week_stats(conn, cur):
-
-    conn.create_function("NODAY", 1, noday)
-
-    intro = ['Weekly Stats']
-    thead = ['Description','Dist.','Time','Time in Zones','Int.','%80/20']
-    summary = ''
-
-    tbody = []
-    tbody.append(['This Week'] + get_log_sums_over_weeks(cur, 0, 0))
-    tbody.append(['Last Week'] + get_log_sums_over_weeks(cur, 1, 1))
-    tbody.append(['Two Weeks Ago'] + get_log_sums_over_weeks(cur, 2, 2))
-    tbody.append(['Three Weeks Ago'] + get_log_sums_over_weeks(cur, 3, 3))
-    tbody.append(['Four Weeks Ago'] + get_log_sums_over_weeks(cur, 4, 4))
-    tbody.append(['Ave: Last 2 weeks'] + get_log_sums_over_weeks(cur, 1, 2))
-    tbody.append(['Ave: Last 4 weeks'] + get_log_sums_over_weeks(cur, 1, 4))
-    tbody.append(['Ave: Last 8 weeks'] + get_log_sums_over_weeks(cur, 1, 8))
-    tbody.append(['Ave: Last 16 weeks'] + get_log_sums_over_weeks(cur, 1, 16))
-    tbody.append(['Ave: Last 32 weeks'] + get_log_sums_over_weeks(cur, 1, 32))
-    tbody.append(['Ave: Last 52 weeks'] + get_log_sums_over_weeks(cur, 1, 52))
-
-    return([intro, thead, tbody, summary])
+    return _build_stats_table(conn, cur, 'Weekly Stats', get_log_sums_over_weeks, [
+        ('This Week',         0,  0),
+        ('Last Week',         1,  1),
+        ('Two Weeks Ago',     2,  2),
+        ('Three Weeks Ago',   3,  3),
+        ('Four Weeks Ago',    4,  4),
+        ('Ave: Last 2 weeks', 1,  2),
+        ('Ave: Last 4 weeks', 1,  4),
+        ('Ave: Last 8 weeks', 1,  8),
+        ('Ave: Last 16 weeks',1, 16),
+        ('Ave: Last 32 weeks',1, 32),
+        ('Ave: Last 52 weeks',1, 52),
+    ])
 
 def get_log_12months(conn, cur):
-
-    conn.create_function("NODAY", 1, noday)
-
-    intro = ['Monthly Stats']
-    thead = ['Description','Dist.','Time','Time in Zones','Int.','%80/20']
-    summary = ''
-
-    tbody = []
-    for month in range (1,13):
-        tbody.append(['%d months ago' % month] + get_log_sums_over_months(cur, month, month))
-
-    return([intro, thead, tbody, summary])
-
+    return _build_stats_table(conn, cur, 'Monthly Stats', get_log_sums_over_months,
+        [('%d months ago' % m, m, m) for m in range(1, 13)])
 
 def get_log_month_stats(conn, cur):
-    # returns this month, last month, then averages of 1,2,4,8,12 months with latest month being last month
-
-    conn.create_function("NODAY", 1, noday)
-
-    intro = ['Monthly Stats']
-    thead = ['Description','Dist.','Time','Time in Zones','Int.','%80/20']
-    summary = ''
-
-    tbody = []
-    tbody.append(['This Month'] + get_log_sums_over_months(cur, 0, 0))
-    tbody.append(['Last Month'] + get_log_sums_over_months(cur, 1, 1))
-    tbody.append(['Two Months Ago'] + get_log_sums_over_months(cur, 2, 2))
-    tbody.append(['Three Months Ago'] + get_log_sums_over_months(cur, 3, 3))
-    tbody.append(['Four Months Ago'] + get_log_sums_over_months(cur, 4, 4))
-    tbody.append(['Ave: Last 2 months'] + get_log_sums_over_months(cur, 1, 2))
-    tbody.append(['Ave: Last 3 months'] + get_log_sums_over_months(cur, 1, 3))
-    tbody.append(['Ave: Last 4 months'] + get_log_sums_over_months(cur, 1, 4))
-    tbody.append(['Ave: Last 5 months'] + get_log_sums_over_months(cur, 1, 5))
-    tbody.append(['Ave: Last 6 months'] + get_log_sums_over_months(cur, 1, 6))
-    tbody.append(['Ave: Last 8 months'] + get_log_sums_over_months(cur, 1, 8))
-    tbody.append(['Ave: Last 12 months'] + get_log_sums_over_months(cur, 1, 12))
-
-    return([intro, thead, tbody, summary])
+    return _build_stats_table(conn, cur, 'Monthly Stats', get_log_sums_over_months, [
+        ('This Month',          0,  0),
+        ('Last Month',          1,  1),
+        ('Two Months Ago',      2,  2),
+        ('Three Months Ago',    3,  3),
+        ('Four Months Ago',     4,  4),
+        ('Ave: Last 2 months',  1,  2),
+        ('Ave: Last 3 months',  1,  3),
+        ('Ave: Last 4 months',  1,  4),
+        ('Ave: Last 5 months',  1,  5),
+        ('Ave: Last 6 months',  1,  6),
+        ('Ave: Last 8 months',  1,  8),
+        ('Ave: Last 12 months', 1, 12),
+    ])
 
 def get_athletes(conn, cur, **kwargs):
     letter = kwargs.get('Letter')
@@ -1036,7 +1045,7 @@ def get_athletes(conn, cur, **kwargs):
         age_group = recs[2]
         club = recs[3]
         hometown = recs[4]
-        id_tag = Markup('<strong><a href=http://localhost:8080/user/%s>%d</a></strong>' % (name.replace(' ','%20'),id))
+        id_tag = Markup('<strong><a href=/user/%s>%d</a></strong>' % (urlquote(name), id))
         tbody.append([id_tag, name, age_group, club, hometown])
 
     intro = ''
@@ -1071,8 +1080,7 @@ def norm_race_dist(timestr, orig_dist, norm_dist):
 def main_sql():
     ######## MAIN FUNCTION ############
 
-    print('Running main_sql()')
-    DATABASE = '/Users/sroberts/Dropbox/Databases/RunningLog/races.sqlite'
+    from config import DATABASE
     [conn, cur] = load_database(DATABASE)
     csvfilename = "/Users/sroberts/GitHub/Running/health_221226.csv"
     load_csv_health(conn, cur, csvfilename)
