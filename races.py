@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from flask import Flask, render_template, request, g, redirect, url_for
+from urllib.parse import urlencode
 import sqlite3
 import re
 import datetime
@@ -475,13 +476,24 @@ def garmin_sync():
             type_key = (act.get('activityType') or {}).get('typeKey', '')
             dist_km = (act.get('distance') or 0) / 1000.0
             total_secs = int(act.get('duration') or 0)
+            act_id = act.get('activityId', '')
+            date_str = (act.get('startTimeLocal') or '')[:10]
+            name = act.get('activityName') or ''
+            params = urlencode({
+                'date': date_str,
+                'dist': f'{dist_km:.2f}',
+                'name': name,
+                'type_key': type_key,
+                'duration': total_secs,
+            })
             activities.append({
-                'activity_id': act.get('activityId', ''),
-                'date': (act.get('startTimeLocal') or '')[:10],
-                'name': act.get('activityName') or '',
+                'activity_id': act_id,
+                'date': date_str,
+                'name': name,
                 'wo_type': garmin._ACTIVITY_TYPE_MAP.get(type_key, type_key or 'Unknown'),
                 'dist_km': f'{dist_km:.2f}',
                 'duration_str': garmin._duration_str(total_secs),
+                'link': f'/AddWorkoutFromGarmin/{act_id}?{params}',
             })
     except ValueError as e:
         error = str(e)
@@ -510,8 +522,16 @@ def add_workout_from_garmin(activity_id):
         val_wo_type=wo_type_list[0] if wo_type_list else '',
     )
     try:
+        # Reconstruct activity summary from URL params (passed by GarminSync page)
+        # to avoid a second Garmin API call with a different response structure.
+        activity = {
+            'startTimeLocal': request.args.get('date', ''),
+            'distance': float(request.args.get('dist', 0)) * 1000,
+            'duration': float(request.args.get('duration', 0)),
+            'activityName': request.args.get('name', ''),
+            'activityType': {'typeKey': request.args.get('type_key', '')},
+        }
         client = garmin.get_client()
-        activity = client.get_activity_details(activity_id)
         laps = garmin.fetch_laps(client, activity_id)
         defaults = garmin.map_to_form(activity, laps)
     except Exception as e:

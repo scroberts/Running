@@ -78,15 +78,33 @@ def _duration_str(seconds: float) -> str:
     return f'{mins}:{secs:02d}'
 
 
-def format_lap_notes(laps: list[dict], total_dist_km: float, total_secs: float) -> str:
-    """Build the Rep / Pace / AHR / RPE / Dist notes block."""
-    lines = ['Rep / Pace / AHR / RPE / Dist']
+def _lap_secs(lap: dict) -> float:
+    """Return lap duration in seconds, trying the field names Garmin uses."""
+    return (lap.get('elapsedDuration') or lap.get('duration')
+            or lap.get('movingDuration') or 0)
+
+
+def format_lap_notes(laps: list[dict]) -> str:
+    """Build the Rep / Pace / AHR / RPE / Dist notes block.
+
+    Totals are computed from the laps so the summary is always consistent
+    with the individual rows regardless of the activity-level summary fields.
+    """
+    lines = ['Rep / Dist / Pace / AHR / RPE']
+    total_dist_m = 0.0
+    total_secs = 0.0
     for i, lap in enumerate(laps, start=1):
         pace = _pace_str(lap.get('averageSpeed', 0))
         ahr = int(lap.get('averageHR') or 0) or ''
-        dist_km = (lap.get('distance') or 0) / 1000.0
-        lines.append(f'{i} / {pace} / {ahr} /   / {dist_km:.2f} km')
-    lines.append(f'Total distance was {total_dist_km:.2f} km in {_duration_str(total_secs)} minutes')
+        dist_m = lap.get('distance') or 0
+        dist_km = dist_m / 1000.0
+        total_dist_m += dist_m
+        total_secs += _lap_secs(lap)
+        lines.append(f'{i} / {dist_km:.2f} km / {pace} / {ahr} /  ')
+    total_dist_km = total_dist_m / 1000.0
+    lines.append(
+        f'Total distance was {total_dist_km:.2f} km in {_duration_str(total_secs)} minutes'
+    )
     return '\n'.join(lines)
 
 
@@ -121,7 +139,7 @@ def map_to_form(activity: dict, laps: list[dict]) -> dict:
     type_key = (activity.get('activityType') or {}).get('typeKey', '')
     wo_type = _ACTIVITY_TYPE_MAP.get(type_key, 'Run')
 
-    notes = format_lap_notes(laps, dist_km, total_secs) if laps else ''
+    notes = format_lap_notes(laps) if laps else ''
 
     return dict(
         val_date=raw_date or date.today().strftime('%Y-%m-%d'),
