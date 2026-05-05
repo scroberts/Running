@@ -504,23 +504,34 @@ def _build_workout_row(row: list) -> list:
             row[6], row[7], zones, f'{row[13]: .1f}%', f'{row[14]: .2f}', row[15]]
 
 
+def _build_word_where(words: list[str], fields: list[str]) -> tuple[str, list]:
+    """Build a multi-word AND WHERE clause.
+
+    Each word must appear in at least one field (OR within a word, AND across words).
+    Returns (where_clause, params_list).
+    """
+    if not words:
+        return '', []
+    clauses = []
+    params = []
+    for word in words:
+        like = f'%{word}%'
+        clauses.append('(' + ' OR '.join(f'{f} LIKE ?' for f in fields) + ')')
+        params.extend([like] * len(fields))
+    return 'WHERE ' + ' AND '.join(clauses), params
+
+
 def search_workouts(cur, query: str = '', page: int = 1,
                     page_size: int = 25) -> tuple[list, list, str, int, int]:
-    """Return paginated workout rows, optionally filtered by a full-text phrase.
+    """Return paginated workout rows, optionally filtered by search terms.
 
     Returns (thead, tbody, summary, total_count, total_pages).
-    Searches date, location, objective, notes, workout type, and shoe name.
+    Each space-separated word must appear in at least one of: date, location,
+    objective, notes, workout type, shoe name.
     """
-    like = f'%{query}%'
-    if query:
-        where = (
-            'WHERE location LIKE ? OR objective LIKE ? OR notes LIKE ? '
-            'OR type LIKE ? OR date LIKE ? OR shortName LIKE ?'
-        )
-        params: list = [like] * 6
-    else:
-        where = ''
-        params = []
+    _WORKOUT_FIELDS = ['location', 'objective', 'notes', 'type', 'date', 'shortName']
+    words = query.split() if query else []
+    where, params = _build_word_where(words, _WORKOUT_FIELDS)
 
     cur.execute(f'SELECT COUNT(*) {_WORKOUT_JOINS} {where}', params)
     total = cur.fetchone()[0]
@@ -541,18 +552,13 @@ def search_workouts(cur, query: str = '', page: int = 1,
 
 def search_health(cur, query: str = '', page: int = 1,
                   page_size: int = 25) -> tuple[list, list, str, int, int]:
-    """Return paginated health rows, optionally filtered by a full-text phrase.
+    """Return paginated health rows, optionally filtered by search terms.
 
     Returns (thead, tbody, summary, total_count, total_pages).
-    Searches date and notes.
+    Each space-separated word must appear in at least one of: date, notes.
     """
-    like = f'%{query}%'
-    if query:
-        where = 'WHERE date LIKE ? OR notes LIKE ?'
-        params: list = [like, like]
-    else:
-        where = ''
-        params = []
+    words = query.split() if query else []
+    where, params = _build_word_where(words, ['date', 'notes'])
 
     cur.execute(f'SELECT COUNT(*) FROM Health {where}', params)
     total = cur.fetchone()[0]

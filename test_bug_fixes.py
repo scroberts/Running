@@ -1414,6 +1414,18 @@ class TestFlaskRoutes(unittest.TestCase):
         r = self.client.get('/ListWorkouts?q=TrackA')
         self.assertIn(b'TrackA', r.data)
 
+    def test_list_workouts_multiword_and_match(self):
+        self.client.post('/AddWorkout', data=self._VALID_WORKOUT, follow_redirects=True)
+        # Both words present in different fields — should match
+        r = self.client.get('/ListWorkouts?q=TrackA+Test')
+        self.assertIn(b'TrackA', r.data)
+
+    def test_list_workouts_multiword_and_no_match(self):
+        self.client.post('/AddWorkout', data=self._VALID_WORKOUT, follow_redirects=True)
+        # Second word not in any field — should return zero
+        r = self.client.get('/ListWorkouts?q=TrackA+xyzzy_no_match')
+        self.assertIn(b'0 workout', r.data)
+
     def test_list_workouts_search_no_match_shows_zero(self):
         r = self.client.get('/ListWorkouts?q=xyzzy_no_match')
         self.assertIn(b'0 workout', r.data)
