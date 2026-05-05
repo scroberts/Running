@@ -201,7 +201,7 @@ def load_csv_health(conn, cur, csv_filename: str) -> None:
                                row['Waist at bb'], row['Hip'], row['Chest'], row['Notes'], row['HR'])
                 except Exception as e:
                     logger.error('Error importing CSV file for Health: %s', e)
-                    exit(1)
+                    raise
         conn.commit()
         logger.info('Health CSV import succeeded')
     except Exception:
@@ -559,7 +559,7 @@ def load_result(conn, cur, csv_filename: str, event_name: str, date: str,
         cur.execute('INSERT INTO Races (eventID, date) VALUES (?,?)', (event_id, date))
     except Exception as e:
         logger.error('Race already exists or error: %s', e)
-        exit(0)
+        raise ValueError(f'Race {event_name!r} on {date} already exists') from e
 
     cur.execute('SELECT id FROM Races WHERE eventID = ? AND date = ? LIMIT 1', (event_id, date))
     race_id = cur.fetchone()[0]
@@ -590,7 +590,7 @@ def load_result(conn, cur, csv_filename: str, event_name: str, date: str,
             )
         except Exception as e:
             logger.error('Error adding to RaceTimes: %s', e)
-            exit(1)
+            raise
     conn.commit()
 
 
@@ -820,7 +820,7 @@ def get_dist_by_type(cur, dist_type: str, date_type: str,
             (start_date_match, end_date_match, dist_type)
         )
     else:
-        exit(0)
+        raise ValueError(f'Unknown date_type {date_type!r}: expected "Isodate" or "Date"')
 
     dist = cur.fetchone()[0]
     return dist if dist is not None else 0.0
