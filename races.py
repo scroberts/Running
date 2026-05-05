@@ -212,11 +212,12 @@ def change_workout(id):
                            val_shoe=val_shoe, shoe_list=shoe_list, errors=errors)
 
 
-@app.route('/ListAthletes', methods=["GET", "POST"])
+@app.route('/ListAthletes', methods=["GET"])
 def list_athletes():
     conn = get_db()
     cur = conn.cursor()
-    intro, thead, tbody, summary = sql.get_athletes(conn, cur, letter='C')
+    letter = request.args.get('letter')
+    intro, thead, tbody, summary = sql.get_athletes(conn, cur, letter=letter)
     return render_template("ListInfo.html", title='Listing of Athletes',
                            intro=intro, thead=thead, tbody=tbody, summary=summary)
 

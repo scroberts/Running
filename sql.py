@@ -275,30 +275,20 @@ def get_health_list(cur) -> tuple[list, list, list, str]:
 
 def get_weight_report(cur) -> None:
     """Generate and save a weight trend plot to static/weight.png."""
-    cur.execute('SELECT date FROM Health WHERE (weight > 0) ORDER BY date DESC')
-    dates = []
-    for count, row in enumerate(cur):
-        if count >= 200:
-            break
-        dates.append(row[0])
-
-    datelist = []
-    weightlist = []
-    for str_date in dates:
-        date = datetime.strptime(str_date, '%Y-%m-%d')
-        datelist.append(date)
-        date_3_days_ago = date - timedelta(days=3)
-        date_3_days_future = date + timedelta(days=3)
-        start = date_3_days_ago.strftime('%Y-%m-%d')
-        end = date_3_days_future.strftime('%Y-%m-%d')
-        try:
-            cur.execute(
-                'SELECT AVG(weight) FROM Health WHERE (date between ? AND ?) AND weight > 0.0',
-                (start, end)
-            )
-            weightlist.append(cur.fetchone())
-        except Exception as e:
-            logger.error('Weight report query error: %s', e)
+    cur.execute('''
+        SELECT h1.date, AVG(h2.weight)
+        FROM Health h1
+        JOIN Health h2
+          ON h2.date BETWEEN date(h1.date, '-3 days') AND date(h1.date, '+3 days')
+         AND h2.weight > 0
+        WHERE h1.weight > 0
+        GROUP BY h1.date
+        ORDER BY h1.date DESC
+        LIMIT 200
+    ''')
+    rows = cur.fetchall()
+    datelist = [datetime.strptime(r[0], '%Y-%m-%d') for r in rows]
+    weightlist = [r[1] for r in rows]
 
     plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
     plt.gca().xaxis.set_major_locator(ticker.MultipleLocator(90))
@@ -331,7 +321,11 @@ def get_all_shoes(cur) -> tuple[list, list, list, str]:
     for shoe_id, short, long_name, retired, dist, last in cur:
         status = 'Retired' if retired else 'Active'
         label = 'Unretire' if retired else 'Retire'
-        action = Markup(f'<a href="/RetireShoe/{shoe_id}">{label}</a>')
+        action = Markup(
+            f'<a href="/RetireShoe/{shoe_id}" '
+            f'onclick="return confirm(\'{label} {escape(short)}?\')">'
+            f'{label}</a>'
+        )
         tbody.append([escape(short), escape(long_name), status, dist, last, action])
     summary = f'Total of {len(tbody)} shoes'
     return intro, thead, tbody, summary
@@ -954,7 +948,7 @@ def get_athletes(conn, cur, letter: str | None = None) -> tuple[list, list, list
     if letter is not None:
         cur.execute(
             'SELECT id, name, age_group, club, hometown FROM Athletes '
-            'WHERE name LIKE ? ORDER by name LIMIT 10 OFFSET 0',
+            'WHERE name LIKE ? ORDER by name',
             (f'{letter}%',)
         )
     else:
@@ -963,12 +957,15 @@ def get_athletes(conn, cur, letter: str | None = None) -> tuple[list, list, list
     tbody = []
     for athlete_id, name, age_group, club, hometown in cur:
         id_tag = Markup(f'<strong><a href=/user/{urlquote(name)}>{athlete_id}</a></strong>')
-        tbody.append([id_tag, name, age_group, club, hometown])
+        tbody.append([id_tag, escape(name), escape(age_group), escape(club), escape(hometown)])
 
-    intro = ''
-    thead = ['id', 'name', 'age_group', 'club', 'hometown']
-    summary = f'Total of {len(tbody)} Entries'
-    return intro, thead, tbody, summary
+    letter_links = ' '.join(
+        Markup(f'<a href="/ListAthletes?letter={c}">{c}</a>') for c in 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+    )
+    nav = Markup(f'<a href="/ListAthletes">All</a> | {letter_links}')
+    thead = ['ID', 'Name', 'Age Group', 'Club', 'Hometown']
+    summary = f'{len(tbody)} athlete(s)'
+    return [nav], thead, tbody, summary
 
 
 def noday(date_str: str) -> str:
