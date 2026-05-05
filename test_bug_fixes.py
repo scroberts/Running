@@ -469,15 +469,16 @@ class TestSec2NoHardcodedUrls(unittest.TestCase):
 class TestCode1WriteSsSaveOnce(unittest.TestCase):
     """wb.save() must be called exactly once, after all rows are written.
 
-    write_ss calls get_workouts internally; we mock it to control the data
-    shape and isolate the save-count behaviour from the get_workouts coupling.
+    write_ss calls _get_workouts_raw internally; we mock it to control the
+    data shape and isolate the save-count behaviour.
     """
 
-    # 15 placeholder columns matching write_ss's expected row width
-    _FAKE_ROW = ['2024-01-10', 'Loc', 'obj', 'notes', '10.0',
+    # 15 raw columns: date, location, objective, notes, dist, time, pace,
+    # recovery, easy, threshold, interval, repetition, p8020, jd_int, shortName
+    _FAKE_ROW = ('2024-01-10', 'Loc', 'obj', 'notes', 10.0,
                  '1:00:00', '6:00', '0:00:00', '1:00:00', '0:00:00',
-                 '0:00:00', '0:00:00', '100.0', '12.0', 'TestShoe']
-    _FAKE_TABLE = (['Listing'], ['h1'], [_FAKE_ROW[:], _FAKE_ROW[:], _FAKE_ROW[:]], '3 workouts')
+                 '0:00:00', '0:00:00', 100.0, 12.0, 'TestShoe')
+    _FAKE_ROWS = [_FAKE_ROW, _FAKE_ROW, _FAKE_ROW]
 
     def test_save_called_once_for_multiple_rows(self):
         import tempfile, openpyxl
@@ -495,7 +496,7 @@ class TestCode1WriteSsSaveOnce(unittest.TestCase):
             original_save(self_wb, filename)
 
         with patch.object(openpyxl.workbook.workbook.Workbook, 'save', counting_save), \
-             patch.object(sql, 'get_workouts', return_value=self._FAKE_TABLE):
+             patch.object(sql, '_get_workouts_raw', return_value=self._FAKE_ROWS):
             sql.write_ss(conn, cur, xlfile)
 
         self.assertEqual(len(save_calls), 1,
@@ -510,7 +511,7 @@ class TestCode1WriteSsSaveOnce(unittest.TestCase):
         with tempfile.NamedTemporaryFile(suffix='.xlsx', delete=False) as f:
             xlfile = f.name
 
-        with patch.object(sql, 'get_workouts', return_value=self._FAKE_TABLE):
+        with patch.object(sql, '_get_workouts_raw', return_value=self._FAKE_ROWS):
             sql.write_ss(conn, cur, xlfile)
 
         wb = openpyxl.load_workbook(xlfile)

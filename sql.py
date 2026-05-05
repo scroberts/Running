@@ -137,6 +137,22 @@ def read_ss(sheet, conn, cur) -> None:
         ss_row += 1
 
 
+def _get_workouts_raw(cur) -> list[tuple]:
+    """Return raw workout rows for non-HTML consumers (e.g. spreadsheet export).
+
+    Columns: date, location, objective, notes, dist, time, pace, recovery, easy,
+             threshold, interval, repetition, p8020, jd_int, shortName
+    """
+    cur.execute(
+        'SELECT date, location, objective, notes, dist, time, pace, recovery, easy, '
+        'threshold, interval, repetition, p8020, jd_int, shortName FROM Log '
+        'JOIN Shoes ON Log.ShoeID = Shoes.id '
+        'JOIN wo_type ON Log.wo_type = wo_type.id '
+        'ORDER BY date DESC'
+    )
+    return cur.fetchall()
+
+
 def write_ss(conn, cur, xl_file: str) -> None:
     """Write workout log to an Excel spreadsheet."""
     wb = openpyxl.Workbook()
@@ -161,10 +177,10 @@ def write_ss(conn, cur, xl_file: str) -> None:
         align_hv_cen_style, align_hv_cen_style, align_wrap_cen_style,
     ]
 
-    intro, thead, tbody, summary = get_workouts(cur)
+    rows = _get_workouts_raw(cur)
     ss_row = row_num
 
-    for row in tbody:
+    for row in rows:
         ss_row += 1
         for col, (value, alignment) in enumerate(zip(row, col_alignments), start=1):
             ws.cell(row=ss_row, column=col).value = value
@@ -630,44 +646,37 @@ def compare_races(cur, event_name1: str, date1: str, event_name2: str, date2: st
         f'with times between {race_time1} and {race_time2}',
         f'where difference in time is less than {int(max_percent * 100)}%',
     )
-    cur.execute('DROP TABLE IF EXISTS race1')
-    cur.execute('DROP TABLE IF EXISTS race2')
-    cur.execute('DROP TABLE IF EXISTS race_compare')
-
     cur.execute(
-        'CREATE TABLE race1 AS SELECT athleteID, str_time, sec_time, pace FROM RaceTimes '
-        'JOIN Races ON Races.id = RaceTimes.raceID '
-        'JOIN Events ON Races.eventID = Events.id AND Events.eventname = ? AND Races.date = ?',
-        (event_name1, date1)
+        '''
+        WITH race1 AS (
+            SELECT athleteID, str_time, sec_time, pace FROM RaceTimes
+            JOIN Races ON Races.id = RaceTimes.raceID
+            JOIN Events ON Races.eventID = Events.id
+            WHERE Events.eventname = ? AND Races.date = ?
+        ),
+        race2 AS (
+            SELECT athleteID, str_time, sec_time, pace FROM RaceTimes
+            JOIN Races ON Races.id = RaceTimes.raceID
+            JOIN Events ON Races.eventID = Events.id
+            WHERE Events.eventname = ? AND Races.date = ?
+        )
+        SELECT race2.athleteID, Athletes.name,
+            race1.str_time, race1.sec_time,
+            race2.str_time, race2.sec_time,
+            race2.sec_time - race1.sec_time AS diff,
+            (race2.sec_time - race1.sec_time) * 2.0 / (race2.sec_time + race1.sec_time) AS percent_diff
+        FROM race2
+        JOIN race1 ON race2.athleteID = race1.athleteID
+        JOIN Athletes ON race2.athleteID = Athletes.id
+        WHERE race1.str_time BETWEEN ? AND ?
+          AND race2.str_time BETWEEN ? AND ?
+          AND abs((race2.sec_time - race1.sec_time) * 2.0 / (race2.sec_time + race1.sec_time)) < ?
+        ''',
+        (event_name1, date1, event_name2, date2,
+         race_time1, race_time2, race_time1, race_time2, max_percent)
     )
-    rows = cur.execute('SELECT * FROM race1').fetchall()
-    logger.debug('race1 rows: %d', len(rows))
-
-    cur.execute(
-        'CREATE TABLE race2 AS SELECT athleteID, str_time, sec_time, pace FROM RaceTimes '
-        'JOIN Races ON Races.id = RaceTimes.raceID '
-        'JOIN Events ON Races.eventID = Events.id AND Events.eventname = ? AND Races.date = ?',
-        (event_name2, date2)
-    )
-    rows = cur.execute('SELECT * FROM race2').fetchall()
-    logger.debug('race2 rows: %d', len(rows))
-
-    cur.execute(
-        'CREATE TABLE race_compare AS '
-        'SELECT race2.athleteID, Athletes.name, '
-        'race1.str_time AS race1_time_str, race1.sec_time AS race1_time_sec, '
-        'race2.str_time AS race2_time_str, race2.sec_time AS race2_time_sec, '
-        'race2.sec_time - race1.sec_time AS diff, '
-        '(race2.sec_time-race1.sec_time)*2/CAST((race2.sec_time+race1.sec_time)AS REAL) AS percent_diff '
-        'FROM race2 '
-        'JOIN race1 ON race2.athleteID = race1.athleteID '
-        'JOIN Athletes ON race2.AthleteID = Athletes.id '
-        'WHERE race1.str_time BETWEEN ? AND ? '
-        'AND race2.str_time BETWEEN ? AND ?',
-        (race_time1, race_time2, race_time1, race_time2)
-    )
-
-    rows = cur.execute('SELECT * FROM race_compare WHERE abs(percent_diff) < ?', (max_percent,)).fetchall()
+    rows = cur.fetchall()
+    logger.debug('compare_races result rows: %d', len(rows))
     diffs = []
     tbody = []
     for row in rows:
