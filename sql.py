@@ -2,6 +2,7 @@
 
 import re
 import csv
+import shlex
 import sqlite3
 import time
 import logging
@@ -504,6 +505,19 @@ def _build_workout_row(row: list) -> list:
             row[6], row[7], zones, f'{row[13]: .1f}%', f'{row[14]: .2f}', row[15]]
 
 
+def _parse_query(query: str) -> list[str]:
+    """Split a search query into tokens, respecting quoted phrases.
+
+    "track interval" easy  →  ['track interval', 'easy']
+    track interval         →  ['track', 'interval']
+    Unclosed quotes are treated as plain text (no crash).
+    """
+    try:
+        return shlex.split(query)
+    except ValueError:
+        return query.split()
+
+
 def _build_word_where(words: list[str], fields: list[str]) -> tuple[str, list]:
     """Build a multi-word AND WHERE clause.
 
@@ -530,7 +544,7 @@ def search_workouts(cur, query: str = '', page: int = 1,
     objective, notes, workout type, shoe name.
     """
     _WORKOUT_FIELDS = ['location', 'objective', 'notes', 'type', 'date', 'shortName']
-    words = query.split() if query else []
+    words = _parse_query(query) if query else []
     where, params = _build_word_where(words, _WORKOUT_FIELDS)
 
     cur.execute(f'SELECT COUNT(*) {_WORKOUT_JOINS} {where}', params)
@@ -557,7 +571,7 @@ def search_health(cur, query: str = '', page: int = 1,
     Returns (thead, tbody, summary, total_count, total_pages).
     Each space-separated word must appear in at least one of: date, notes.
     """
-    words = query.split() if query else []
+    words = _parse_query(query) if query else []
     where, params = _build_word_where(words, ['date', 'notes'])
 
     cur.execute(f'SELECT COUNT(*) FROM Health {where}', params)

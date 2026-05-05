@@ -1414,6 +1414,18 @@ class TestFlaskRoutes(unittest.TestCase):
         r = self.client.get('/ListWorkouts?q=TrackA')
         self.assertIn(b'TrackA', r.data)
 
+    def test_list_workouts_phrase_match(self):
+        self.client.post('/AddWorkout', data=self._VALID_WORKOUT, follow_redirects=True)
+        # Quoted phrase must match as a substring
+        r = self.client.get('/ListWorkouts?q=%22Test+notes%22')
+        self.assertIn(b'TrackA', r.data)
+
+    def test_list_workouts_phrase_no_match_when_words_split(self):
+        self.client.post('/AddWorkout', data=self._VALID_WORKOUT, follow_redirects=True)
+        # "notes Test" is not a contiguous substring even though both words exist
+        r = self.client.get('/ListWorkouts?q=%22notes+Test%22')
+        self.assertIn(b'0 workout', r.data)
+
     def test_list_workouts_multiword_and_match(self):
         self.client.post('/AddWorkout', data=self._VALID_WORKOUT, follow_redirects=True)
         # Both words present in different fields — should match
