@@ -6,10 +6,13 @@ import sqlite3
 import datetime
 import sys
 import os
+from unittest.mock import patch
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import sql
 import sql_maintenance
+import races
+from races import app, _validate_workout, _validate_health, _validate_shoe
 
 
 def make_db():
@@ -981,6 +984,436 @@ class TestLow7QuotedAttributes(unittest.TestCase):
         src = pathlib.Path('templates/AddWorkout.html').read_text()
         quoted = re.findall(r'value\s*=\s*"[^"]*\{\{[^}]*\}\}[^"]*"', src)
         self.assertGreater(len(quoted), 0, "Expected quoted value=\"{{ ... }}\" attributes")
+
+
+# ---------------------------------------------------------------------------
+# VAL-1: _validate_workout
+# ---------------------------------------------------------------------------
+class TestValidateWorkout(unittest.TestCase):
+
+    def _call(self, date='2024-01-15', distance='10.0', recovery='0:00:00',
+              easy='1:00:00', threshold='0:00:00', interval='0:00:00', repetition='0:00:00'):
+        return _validate_workout(date, distance, recovery, easy, threshold, interval, repetition)
+
+    def test_valid_inputs_returns_empty(self):
+        self.assertEqual(self._call(), [])
+
+    def test_bad_date_format_reported(self):
+        errors = self._call(date='15-01-2024')
+        self.assertTrue(any('Date' in e for e in errors))
+
+    def test_zero_distance_reported(self):
+        errors = self._call(distance='0.0')
+        self.assertTrue(any('Distance' in e for e in errors))
+
+    def test_negative_distance_reported(self):
+        errors = self._call(distance='-5')
+        self.assertTrue(any('Distance' in e for e in errors))
+
+    def test_non_numeric_distance_reported(self):
+        errors = self._call(distance='abc')
+        self.assertTrue(any('Distance' in e for e in errors))
+
+    def test_bad_recovery_time_reported(self):
+        errors = self._call(recovery='60:00')
+        self.assertTrue(any('Recovery' in e for e in errors))
+
+    def test_invalid_minutes_in_easy_reported(self):
+        errors = self._call(easy='1:60:00')
+        self.assertTrue(any('Easy' in e for e in errors))
+
+    def test_multiple_bad_fields_all_reported(self):
+        errors = self._call(date='bad', distance='-1',
+                            recovery='bad', easy='bad',
+                            threshold='bad', interval='bad', repetition='bad')
+        self.assertGreater(len(errors), 3)
+
+
+# ---------------------------------------------------------------------------
+# VAL-2: _validate_health
+# ---------------------------------------------------------------------------
+class TestValidateHealth(unittest.TestCase):
+
+    def _call(self, date='2024-01-15', weight='70.0', waist='80.0',
+              waist_bb='85.0', hips='90.0', chest='95.0', hr='60'):
+        return _validate_health(date, weight, waist, waist_bb, hips, chest, hr)
+
+    def test_valid_inputs_returns_empty(self):
+        self.assertEqual(self._call(), [])
+
+    def test_bad_date_reported(self):
+        errors = self._call(date='not-a-date')
+        self.assertTrue(any('Date' in e for e in errors))
+
+    def test_negative_weight_reported(self):
+        errors = self._call(weight='-1.0')
+        self.assertTrue(any('Weight' in e for e in errors))
+
+    def test_non_numeric_waist_reported(self):
+        errors = self._call(waist='abc')
+        self.assertTrue(any('Waist' in e for e in errors))
+
+    def test_zero_hr_reported(self):
+        errors = self._call(hr='0')
+        self.assertTrue(any('Heart rate' in e for e in errors))
+
+    def test_negative_hr_reported(self):
+        errors = self._call(hr='-10')
+        self.assertTrue(any('Heart rate' in e for e in errors))
+
+    def test_non_numeric_hr_reported(self):
+        errors = self._call(hr='fast')
+        self.assertTrue(any('Heart rate' in e for e in errors))
+
+
+# ---------------------------------------------------------------------------
+# VAL-3: _validate_shoe
+# ---------------------------------------------------------------------------
+class TestValidateShoe(unittest.TestCase):
+
+    def test_valid_inputs_returns_empty(self):
+        self.assertEqual(_validate_shoe('Nike', 'Nike Air Zoom'), [])
+
+    def test_empty_short_name_reported(self):
+        self.assertTrue(len(_validate_shoe('', 'Nike Air Zoom')) > 0)
+
+    def test_whitespace_only_short_name_reported(self):
+        self.assertTrue(len(_validate_shoe('   ', 'Nike Air Zoom')) > 0)
+
+    def test_empty_long_name_reported(self):
+        self.assertTrue(len(_validate_shoe('Nike', '')) > 0)
+
+    def test_both_empty_gives_two_errors(self):
+        self.assertEqual(len(_validate_shoe('', '')), 2)
+
+
+# ---------------------------------------------------------------------------
+# SQL-RET: retire_shoe and get_all_shoes
+# ---------------------------------------------------------------------------
+class TestRetireShoe(unittest.TestCase):
+
+    def test_retire_active_shoe(self):
+        conn, cur = make_db()
+        sql.retire_shoe(conn, cur, 1)
+        cur.execute('SELECT retired FROM Shoes WHERE id = 1')
+        self.assertEqual(cur.fetchone()[0], 1)
+        conn.close()
+
+    def test_unretire_retired_shoe(self):
+        conn, cur = make_db()
+        cur.execute('UPDATE Shoes SET retired = 1 WHERE id = 1')
+        conn.commit()
+        sql.retire_shoe(conn, cur, 1)
+        cur.execute('SELECT retired FROM Shoes WHERE id = 1')
+        self.assertEqual(cur.fetchone()[0], 0)
+        conn.close()
+
+    def test_retire_nonexistent_shoe_does_not_crash(self):
+        conn, cur = make_db()
+        try:
+            sql.retire_shoe(conn, cur, 9999)
+        except Exception as e:
+            self.fail(f'retire_shoe raised on missing id: {e}')
+        conn.close()
+
+    def test_get_all_shoes_includes_all_retired_states(self):
+        conn, cur = make_db()
+        cur.execute("INSERT INTO Shoes VALUES (2, 'OldShoe', 'Old Shoe Long', 1)")
+        conn.commit()
+        _, _, tbody, _ = sql.get_all_shoes(cur)
+        short_names = [str(row[0]) for row in tbody]
+        self.assertIn('TestShoe', short_names)
+        self.assertIn('OldShoe', short_names)
+        conn.close()
+
+    def test_get_all_shoes_active_shows_retire_link(self):
+        conn, cur = make_db()
+        _, _, tbody, _ = sql.get_all_shoes(cur)
+        action = str(tbody[0][5])
+        self.assertIn('/RetireShoe/', action)
+        self.assertIn('Retire', action)
+        conn.close()
+
+    def test_get_all_shoes_retired_shows_unretire_link(self):
+        conn, cur = make_db()
+        cur.execute('UPDATE Shoes SET retired = 1 WHERE id = 1')
+        conn.commit()
+        _, _, tbody, _ = sql.get_all_shoes(cur)
+        action = str(tbody[0][5])
+        self.assertIn('Unretire', action)
+        conn.close()
+
+    def test_get_all_shoes_summary_counts_all(self):
+        conn, cur = make_db()
+        cur.execute("INSERT INTO Shoes VALUES (2, 'OldShoe', 'Old Shoe Long', 1)")
+        conn.commit()
+        _, _, _, summary = sql.get_all_shoes(cur)
+        self.assertIn('2', summary)
+        conn.close()
+
+
+# ---------------------------------------------------------------------------
+# SQL-DICT: get_running_dict structure and content
+# ---------------------------------------------------------------------------
+class TestGetRunningDict(unittest.TestCase):
+
+    def test_empty_db_returns_empty_dict(self):
+        conn, cur = make_db()
+        result = sql.get_running_dict(conn, cur)
+        self.assertEqual(result, {})
+        conn.close()
+
+    def test_keys_are_sequential_from_one(self):
+        conn, cur = make_db()
+        add_wo(conn, cur, date='2024-01-15')
+        add_wo(conn, cur, date='2024-01-16')
+        result = sql.get_running_dict(conn, cur)
+        self.assertEqual(sorted(result.keys()), [1, 2])
+        conn.close()
+
+    def test_entry_has_required_keys(self):
+        conn, cur = make_db()
+        add_wo(conn, cur, date='2024-01-15')
+        entry = sql.get_running_dict(conn, cur)[1]
+        for key in ('id', 'date', 'weekday', 'description', 'objective',
+                    'notes', 'distance', 'time_run', 'pace', 'shoes'):
+            self.assertIn(key, entry, f'Missing key: {key}')
+        conn.close()
+
+    def test_weekday_is_correct(self):
+        conn, cur = make_db()
+        add_wo(conn, cur, date='2024-01-15')   # Monday
+        add_wo(conn, cur, date='2024-01-20')   # Saturday
+        result = sql.get_running_dict(conn, cur)
+        self.assertEqual(result[1]['weekday'], 'Monday')
+        self.assertEqual(result[2]['weekday'], 'Saturday')
+        conn.close()
+
+    def test_ordered_by_date(self):
+        conn, cur = make_db()
+        add_wo(conn, cur, date='2024-06-01')
+        add_wo(conn, cur, date='2024-01-15')
+        result = sql.get_running_dict(conn, cur)
+        dates = [result[i]['date'].strftime('%Y-%m-%d') for i in sorted(result)]
+        self.assertEqual(dates, ['2024-01-15', '2024-06-01'])
+        conn.close()
+
+    def test_distance_matches_inserted_value(self):
+        conn, cur = make_db()
+        add_wo(conn, cur, date='2024-01-15', distance='15.5')
+        result = sql.get_running_dict(conn, cur)
+        self.assertAlmostEqual(result[1]['distance'], 15.5)
+        conn.close()
+
+
+# ---------------------------------------------------------------------------
+# ROUTE: Flask HTTP layer
+# ---------------------------------------------------------------------------
+def _make_temp_db_file() -> str:
+    """Create a seeded SQLite temp file and return its path."""
+    import tempfile
+    fd, path = tempfile.mkstemp(suffix='.sqlite')
+    os.close(fd)
+    conn = sqlite3.connect(path)
+    cur = conn.cursor()
+    cur.execute('CREATE TABLE wo_type (id INTEGER PRIMARY KEY, type TEXT)')
+    cur.execute('CREATE TABLE Shoes (id INTEGER PRIMARY KEY, shortName TEXT, longName TEXT, retired INTEGER)')
+    cur.execute('''CREATE TABLE Log (
+        id INTEGER PRIMARY KEY, date TEXT, location TEXT, wo_type INTEGER,
+        objective TEXT, notes TEXT, dist REAL, time TEXT, time_secs REAL,
+        pace TEXT, pace_secs REAL, recovery TEXT, recovery_secs REAL,
+        easy TEXT, easy_secs REAL, threshold TEXT, threshold_secs REAL,
+        interval TEXT, interval_secs REAL, repetition TEXT, repetition_secs REAL,
+        p8020 REAL, jd_int REAL, shoeID INTEGER, isodate TEXT
+    )''')
+    cur.execute('''CREATE TABLE Events (
+        id INTEGER PRIMARY KEY, eventname TEXT, dist REAL,
+        min_elev INTEGER, max_elev INTEGER, gain_elev INTEGER, UNIQUE (eventname)
+    )''')
+    cur.execute('CREATE TABLE Races (id INTEGER PRIMARY KEY, eventID INTEGER, date TEXT, UNIQUE (eventID, date))')
+    cur.execute('''CREATE TABLE Athletes (
+        id INTEGER PRIMARY KEY, name TEXT, age_group TEXT, club TEXT, hometown TEXT,
+        UNIQUE (name, hometown)
+    )''')
+    cur.execute('CREATE TABLE RaceTimes (id INTEGER PRIMARY KEY, athleteID INTEGER, raceID INTEGER, str_time TEXT, sec_time INTEGER, pace TEXT)')
+    cur.execute('''CREATE TABLE Health (
+        id INTEGER PRIMARY KEY, date TEXT, weight REAL, smallWaist REAL, bbWaist REAL,
+        hip REAL, chest REAL, notes TEXT, HR REAL, UNIQUE (date)
+    )''')
+    cur.execute("INSERT INTO wo_type VALUES (1, 'Run')")
+    cur.execute("INSERT INTO wo_type VALUES (2, 'Ride')")
+    cur.execute("INSERT INTO Shoes VALUES (1, 'TestShoe', 'Test Shoe Long', 0)")
+    conn.commit()
+    conn.close()
+    return path
+
+
+class TestFlaskRoutes(unittest.TestCase):
+    """Test the Flask HTTP layer using the test client against a temp SQLite file."""
+
+    def setUp(self):
+        self.db_path = _make_temp_db_file()
+        self._patcher = patch('races.DATABASE', self.db_path)
+        self._patcher.start()
+        app.config['TESTING'] = True
+        self.client = app.test_client()
+
+    def tearDown(self):
+        self._patcher.stop()
+        os.unlink(self.db_path)
+
+    # --- GET routes ---
+
+    def test_homepage_returns_200(self):
+        self.assertEqual(self.client.get('/').status_code, 200)
+
+    def test_list_workouts_returns_200(self):
+        self.assertEqual(self.client.get('/ListWorkouts').status_code, 200)
+
+    def test_add_workout_get_returns_200(self):
+        self.assertEqual(self.client.get('/AddWorkout').status_code, 200)
+
+    def test_list_shoes_returns_200(self):
+        self.assertEqual(self.client.get('/ListShoes').status_code, 200)
+
+    def test_add_shoes_get_returns_200(self):
+        self.assertEqual(self.client.get('/AddShoes').status_code, 200)
+
+    def test_manage_shoes_returns_200(self):
+        self.assertEqual(self.client.get('/ManageShoes').status_code, 200)
+
+    def test_retire_shoe_returns_200(self):
+        self.assertEqual(self.client.get('/RetireShoe/1').status_code, 200)
+
+    def test_list_health_returns_200(self):
+        self.assertEqual(self.client.get('/ListHealth').status_code, 200)
+
+    def test_add_health_get_returns_200(self):
+        self.assertEqual(self.client.get('/AddHealth').status_code, 200)
+
+    def test_list_athletes_returns_200(self):
+        self.assertEqual(self.client.get('/ListAthletes').status_code, 200)
+
+    def test_compare_get_returns_200(self):
+        self.assertEqual(self.client.get('/Compare').status_code, 200)
+
+    def test_workout_52weeks_returns_200(self):
+        self.assertEqual(self.client.get('/Workout52Weeks').status_code, 200)
+
+    def test_workout_week_stats_returns_200(self):
+        self.assertEqual(self.client.get('/WorkoutWeekStats').status_code, 200)
+
+    # --- POST /AddWorkout ---
+
+    _VALID_WORKOUT = dict(
+        date='2024-01-15', location='TrackA', wo_type='Run',
+        objective='Test', notes='Test notes', distance='10.0',
+        recovery='0:00:00', easy='1:00:00', threshold='0:00:00',
+        interval='0:00:00', repetition='0:00:00', shoes='TestShoe',
+    )
+
+    def test_add_workout_post_valid_shows_workout_list(self):
+        r = self.client.post('/AddWorkout', data=self._VALID_WORKOUT)
+        self.assertEqual(r.status_code, 200)
+        self.assertIn(b'Listing of Workouts', r.data)
+
+    def test_add_workout_post_invalid_date_shows_error(self):
+        r = self.client.post('/AddWorkout', data={**self._VALID_WORKOUT, 'date': 'bad-date'})
+        self.assertEqual(r.status_code, 200)
+        self.assertIn(b'Date must be', r.data)
+
+    def test_add_workout_post_invalid_distance_shows_error(self):
+        r = self.client.post('/AddWorkout', data={**self._VALID_WORKOUT, 'distance': '-5'})
+        self.assertEqual(r.status_code, 200)
+        self.assertIn(b'Distance', r.data)
+
+    def test_add_workout_post_preserves_location_on_error(self):
+        r = self.client.post('/AddWorkout', data={**self._VALID_WORKOUT, 'date': 'bad', 'location': 'MyTrack'})
+        self.assertIn(b'MyTrack', r.data)
+
+    def test_add_workout_post_saves_to_db(self):
+        self.client.post('/AddWorkout', data=self._VALID_WORKOUT)
+        conn = sqlite3.connect(self.db_path)
+        cur = conn.cursor()
+        cur.execute('SELECT date, location FROM Log')
+        row = cur.fetchone()
+        conn.close()
+        self.assertIsNotNone(row)
+        self.assertEqual(row[0], '2024-01-15')
+        self.assertEqual(row[1], 'TrackA')
+
+    # --- POST /AddHealth ---
+
+    _VALID_HEALTH = dict(
+        date='2024-01-15', weight='70.0', waist='80.0', waist_bb='85.0',
+        hips='90.0', chest='95.0', HR='60', notes='test',
+    )
+
+    def test_add_health_post_valid_shows_health_list(self):
+        r = self.client.post('/AddHealth', data=self._VALID_HEALTH)
+        self.assertEqual(r.status_code, 200)
+        self.assertIn(b'Listing of Health', r.data)
+
+    def test_add_health_post_invalid_date_shows_error(self):
+        r = self.client.post('/AddHealth', data={**self._VALID_HEALTH, 'date': 'bad-date'})
+        self.assertIn(b'Date must be', r.data)
+
+    def test_add_health_post_zero_hr_shows_error(self):
+        r = self.client.post('/AddHealth', data={**self._VALID_HEALTH, 'HR': '0'})
+        self.assertIn(b'Heart rate', r.data)
+
+    def test_add_health_post_saves_to_db(self):
+        self.client.post('/AddHealth', data=self._VALID_HEALTH)
+        conn = sqlite3.connect(self.db_path)
+        cur = conn.cursor()
+        cur.execute('SELECT date, weight FROM Health')
+        row = cur.fetchone()
+        conn.close()
+        self.assertIsNotNone(row)
+        self.assertEqual(row[0], '2024-01-15')
+
+    # --- POST /AddShoes ---
+
+    def test_add_shoes_post_valid_saves_to_db(self):
+        self.client.post('/AddShoes', data={'shortName': 'NewShoe', 'longName': 'New Shoe Long'})
+        conn = sqlite3.connect(self.db_path)
+        cur = conn.cursor()
+        cur.execute("SELECT shortName FROM Shoes WHERE shortName = 'NewShoe'")
+        self.assertIsNotNone(cur.fetchone())
+        conn.close()
+
+    def test_add_shoes_post_empty_short_name_shows_error(self):
+        r = self.client.post('/AddShoes', data={'shortName': '', 'longName': 'New Shoe Long'})
+        self.assertEqual(r.status_code, 200)
+        self.assertIn(b'Short name is required', r.data)
+
+    def test_add_shoes_post_empty_names_does_not_insert(self):
+        self.client.post('/AddShoes', data={'shortName': '', 'longName': ''})
+        conn = sqlite3.connect(self.db_path)
+        cur = conn.cursor()
+        cur.execute('SELECT COUNT(*) FROM Shoes')
+        count = cur.fetchone()[0]
+        conn.close()
+        self.assertEqual(count, 1)  # only the seed shoe
+
+    # --- /RetireShoe toggles DB state ---
+
+    def test_retire_shoe_toggles_retired_flag_in_db(self):
+        self.client.get('/RetireShoe/1')
+        conn = sqlite3.connect(self.db_path)
+        cur = conn.cursor()
+        cur.execute('SELECT retired FROM Shoes WHERE id = 1')
+        self.assertEqual(cur.fetchone()[0], 1)
+        conn.close()
+
+    def test_retire_shoe_twice_restores_active(self):
+        self.client.get('/RetireShoe/1')
+        self.client.get('/RetireShoe/1')
+        conn = sqlite3.connect(self.db_path)
+        cur = conn.cursor()
+        cur.execute('SELECT retired FROM Shoes WHERE id = 1')
+        self.assertEqual(cur.fetchone()[0], 0)
+        conn.close()
 
 
 if __name__ == '__main__':

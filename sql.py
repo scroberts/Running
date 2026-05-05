@@ -782,6 +782,10 @@ def get_log_sums_over_months(cur, month_ago_nearest: int, month_ago_furthest: in
     cur.execute('SELECT noday(date) FROM Log GROUP BY noday(date) ORDER by noday(date) DESC')
     curlist = cur.fetchall()
 
+    if month_ago_furthest >= len(curlist):
+        zero_zones = zones_str('0:00:00', '0:00:00', '0:00:00', '0:00:00', '0:00:00')
+        return ['0.0', '0:00:00', zero_zones, '0.0', '0.0']
+
     start_date = curlist[month_ago_furthest][0]
     end_date = curlist[month_ago_nearest][0]
     start_date_match = start_date + '-01'
@@ -841,6 +845,10 @@ def get_log_sums_over_weeks(cur, week_ago_nearest: int, week_ago_furthest: int) 
 
     cur.execute('SELECT noday(isodate) FROM Log GROUP BY noday(isodate) ORDER by noday(isodate) DESC')
     curlist = cur.fetchall()
+
+    if week_ago_furthest >= len(curlist):
+        zero_zones = zones_str('0:00:00', '0:00:00', '0:00:00', '0:00:00', '0:00:00')
+        return [Markup(''), '0:00:00', zero_zones, '0.0', '0.0']
 
     start_date = curlist[week_ago_furthest][0]
     end_date = curlist[week_ago_nearest][0]
