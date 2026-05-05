@@ -9,6 +9,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 import sql
+import garmin
 from config import DATABASE
 
 app = Flask(__name__)
@@ -458,6 +459,71 @@ def show_user_races(username):
     intro, thead, tbody, summary = sql.get_races_for_athlete(cur, username)
     return render_template("ListInfo.html", title='Races by Athlete',
                            intro=intro, thead=thead, tbody=tbody, summary=summary)
+
+
+@app.route('/GarminSync', methods=["GET"])
+def garmin_sync():
+    conn = get_db()
+    cur = conn.cursor()
+    error = None
+    activities = []
+    try:
+        client = garmin.get_client()
+        raw = garmin.fetch_recent_activities(client, days=30)
+        unlogged = garmin.find_unlogged(cur, raw)
+        for act in unlogged:
+            type_key = (act.get('activityType') or {}).get('typeKey', '')
+            dist_km = (act.get('distance') or 0) / 1000.0
+            total_secs = int(act.get('duration') or 0)
+            activities.append({
+                'activity_id': act.get('activityId', ''),
+                'date': (act.get('startTimeLocal') or '')[:10],
+                'name': act.get('activityName') or '',
+                'wo_type': garmin._ACTIVITY_TYPE_MAP.get(type_key, type_key or 'Unknown'),
+                'dist_km': f'{dist_km:.2f}',
+                'duration_str': garmin._duration_str(total_secs),
+            })
+    except ValueError as e:
+        error = str(e)
+    except Exception as e:
+        logger.error('Garmin sync error: %s', e)
+        error = f'Garmin connection failed: {e}'
+    return render_template("GarminSync.html", activities=activities, error=error)
+
+
+@app.route('/AddWorkoutFromGarmin/<activity_id>', methods=["GET"])
+def add_workout_from_garmin(activity_id):
+    conn = get_db()
+    cur = conn.cursor()
+
+    cur.execute('SELECT shortName FROM Shoes WHERE retired = 0 ORDER BY shortName')
+    shoe_list = [row[0] for row in cur]
+    cur.execute('SELECT type FROM wo_type')
+    wo_type_list = [row[0] for row in cur]
+
+    errors = []
+    defaults = dict(
+        val_date=datetime.date.today().strftime('%Y-%m-%d'),
+        val_location='', val_objective='', val_notes='',
+        val_distance='10.0', val_recovery='0:00:00', val_easy='0:00:00',
+        val_threshold='0:00:00', val_interval='0:00:00', val_repetition='0:00:00',
+        val_wo_type=wo_type_list[0] if wo_type_list else '',
+    )
+    try:
+        client = garmin.get_client()
+        activity = client.get_activity_details(activity_id)
+        laps = garmin.fetch_laps(client, activity_id)
+        defaults = garmin.map_to_form(activity, laps)
+    except Exception as e:
+        logger.error('Garmin activity fetch error: %s', e)
+        errors = [f'Could not load Garmin activity: {e}']
+
+    # Put the mapped workout type first so it is pre-selected in the dropdown
+    matched_type = defaults.get('val_wo_type', '')
+    ordered_types = [matched_type] + [t for t in wo_type_list if t != matched_type]
+
+    return render_template("AddWorkout.html", wo_type_list=ordered_types,
+                           shoe_list=shoe_list, errors=errors, **defaults)
 
 
 if __name__ == "__main__":

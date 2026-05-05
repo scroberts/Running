@@ -1461,5 +1461,237 @@ class TestFlaskRoutes(unittest.TestCase):
         conn.close()
 
 
+# ---------------------------------------------------------------------------
+# GARMIN-1: garmin.format_lap_notes
+# ---------------------------------------------------------------------------
+class TestFormatLapNotes(unittest.TestCase):
+
+    _LAPS = [
+        {'averageSpeed': 3.984, 'averageHR': 135, 'distance': 1000.0},  # ~4:11/km
+        {'averageSpeed': 3.968, 'averageHR': 141, 'distance': 1000.0},  # ~4:12/km
+        {'averageSpeed': 3.953, 'averageHR': 144, 'distance': 1000.0},  # ~4:13/km
+    ]
+
+    def test_header_line(self):
+        import garmin as g
+        notes = g.format_lap_notes(self._LAPS, 3.0, 756)
+        self.assertTrue(notes.startswith('Rep / Pace / AHR / RPE / Dist'))
+
+    def test_correct_row_count(self):
+        import garmin as g
+        notes = g.format_lap_notes(self._LAPS, 3.0, 756)
+        lines = notes.strip().splitlines()
+        # header + 3 lap rows + total line = 5
+        self.assertEqual(len(lines), 5)
+
+    def test_rpe_column_is_blank(self):
+        import garmin as g
+        notes = g.format_lap_notes(self._LAPS, 3.0, 756)
+        for line in notes.splitlines()[1:-1]:  # skip header and total
+            parts = line.split(' / ')
+            self.assertEqual(parts[3].strip(), '', f'RPE column should be blank: {line}')
+
+    def test_total_line_present(self):
+        import garmin as g
+        notes = g.format_lap_notes(self._LAPS, 3.0, 756)
+        self.assertIn('Total distance was 3.00 km', notes)
+
+    def test_empty_laps_returns_total_only(self):
+        import garmin as g
+        notes = g.format_lap_notes([], 5.0, 1500)
+        self.assertIn('Total distance was 5.00 km', notes)
+
+    def test_zero_speed_shows_placeholder(self):
+        import garmin as g
+        laps = [{'averageSpeed': 0, 'averageHR': 140, 'distance': 1000.0}]
+        notes = g.format_lap_notes(laps, 1.0, 300)
+        self.assertIn('--:--', notes)
+
+
+# ---------------------------------------------------------------------------
+# GARMIN-2: garmin.find_unlogged
+# ---------------------------------------------------------------------------
+class TestFindUnlogged(unittest.TestCase):
+
+    _ACTIVITIES = [
+        {'activityId': 1, 'startTimeLocal': '2024-01-15 10:00:00',
+         'distance': 10000.0, 'activityName': 'Morning Run',
+         'activityType': {'typeKey': 'running'}, 'duration': 3600},
+        {'activityId': 2, 'startTimeLocal': '2024-01-20 09:00:00',
+         'distance': 5000.0, 'activityName': 'Easy Run',
+         'activityType': {'typeKey': 'running'}, 'duration': 1800},
+    ]
+
+    def test_already_logged_exact_match_excluded(self):
+        import garmin as g
+        conn, cur = make_db()
+        add_wo(conn, cur, date='2024-01-15', distance='10.0')
+        result = g.find_unlogged(cur, self._ACTIVITIES)
+        ids = [a['activityId'] for a in result]
+        self.assertNotIn(1, ids)
+        conn.close()
+
+    def test_unlogged_activity_included(self):
+        import garmin as g
+        conn, cur = make_db()
+        result = g.find_unlogged(cur, self._ACTIVITIES)
+        ids = [a['activityId'] for a in result]
+        self.assertIn(1, ids)
+        self.assertIn(2, ids)
+        conn.close()
+
+    def test_within_10_percent_excluded(self):
+        import garmin as g
+        conn, cur = make_db()
+        # Log 9.5 km; Garmin 10.0 km — within 10%
+        add_wo(conn, cur, date='2024-01-15', distance='9.5')
+        result = g.find_unlogged(cur, self._ACTIVITIES)
+        ids = [a['activityId'] for a in result]
+        self.assertNotIn(1, ids)
+        conn.close()
+
+    def test_outside_10_percent_included(self):
+        import garmin as g
+        conn, cur = make_db()
+        # Log 5.0 km; Garmin 10.0 km — outside 10%
+        add_wo(conn, cur, date='2024-01-15', distance='5.0')
+        result = g.find_unlogged(cur, self._ACTIVITIES)
+        ids = [a['activityId'] for a in result]
+        self.assertIn(1, ids)
+        conn.close()
+
+
+# ---------------------------------------------------------------------------
+# GARMIN-3: garmin.map_to_form
+# ---------------------------------------------------------------------------
+class TestMapToForm(unittest.TestCase):
+
+    _ACTIVITY = {
+        'activityId': 42,
+        'activityName': 'Track Session',
+        'startTimeLocal': '2024-01-15 07:30:00',
+        'distance': 8050.0,
+        'duration': 2400.0,
+        'activityType': {'typeKey': 'running'},
+    }
+    _LAPS = [
+        {'averageSpeed': 4.0, 'averageHR': 142, 'distance': 1000.0},
+    ]
+
+    def test_date_extracted_correctly(self):
+        import garmin as g
+        form = g.map_to_form(self._ACTIVITY, self._LAPS)
+        self.assertEqual(form['val_date'], '2024-01-15')
+
+    def test_distance_in_km(self):
+        import garmin as g
+        form = g.map_to_form(self._ACTIVITY, self._LAPS)
+        self.assertAlmostEqual(float(form['val_distance']), 8.05, places=1)
+
+    def test_location_from_activity_name(self):
+        import garmin as g
+        form = g.map_to_form(self._ACTIVITY, self._LAPS)
+        self.assertEqual(form['val_location'], 'Track Session')
+
+    def test_running_maps_to_run(self):
+        import garmin as g
+        form = g.map_to_form(self._ACTIVITY, self._LAPS)
+        self.assertEqual(form['val_wo_type'], 'Run')
+
+    def test_cycling_maps_to_ride(self):
+        import garmin as g
+        act = {**self._ACTIVITY, 'activityType': {'typeKey': 'cycling'}}
+        form = g.map_to_form(act, [])
+        self.assertEqual(form['val_wo_type'], 'Ride')
+
+    def test_notes_contains_lap_data(self):
+        import garmin as g
+        form = g.map_to_form(self._ACTIVITY, self._LAPS)
+        self.assertIn('Rep / Pace / AHR / RPE / Dist', form['val_notes'])
+
+    def test_time_zones_default_to_zero(self):
+        import garmin as g
+        form = g.map_to_form(self._ACTIVITY, self._LAPS)
+        for field in ('val_recovery', 'val_easy', 'val_threshold',
+                      'val_interval', 'val_repetition'):
+            self.assertEqual(form[field], '0:00:00')
+
+
+# ---------------------------------------------------------------------------
+# GARMIN-4: Flask routes for Garmin integration
+# ---------------------------------------------------------------------------
+class TestGarminRoutes(unittest.TestCase):
+
+    def setUp(self):
+        self.db_path = _make_temp_db_file()
+        self._db_patcher = patch('races.DATABASE', self.db_path)
+        self._db_patcher.start()
+        app.config['TESTING'] = True
+        self.client = app.test_client()
+
+    def tearDown(self):
+        self._db_patcher.stop()
+        os.unlink(self.db_path)
+
+    def test_garmin_sync_missing_credentials_shows_error(self):
+        with patch('garmin.get_client', side_effect=ValueError('Set GARMIN_EMAIL')):
+            r = self.client.get('/GarminSync')
+        self.assertEqual(r.status_code, 200)
+        self.assertIn(b'Set GARMIN_EMAIL', r.data)
+
+    def test_garmin_sync_connection_error_shows_error(self):
+        with patch('garmin.get_client', side_effect=Exception('Network error')):
+            r = self.client.get('/GarminSync')
+        self.assertEqual(r.status_code, 200)
+        self.assertIn(b'Garmin connection failed', r.data)
+
+    def test_garmin_sync_no_unlogged_shows_success_message(self):
+        with patch('garmin.get_client'), \
+             patch('garmin.fetch_recent_activities', return_value=[]), \
+             patch('garmin.find_unlogged', return_value=[]):
+            r = self.client.get('/GarminSync')
+        self.assertEqual(r.status_code, 200)
+        self.assertIn(b'already in your log', r.data)
+
+    def test_garmin_sync_shows_unlogged_activity(self):
+        fake_act = {
+            'activityId': 99,
+            'startTimeLocal': '2024-06-01 08:00:00',
+            'activityName': 'Morning Run',
+            'activityType': {'typeKey': 'running'},
+            'distance': 10000.0,
+            'duration': 3600.0,
+        }
+        with patch('garmin.get_client'), \
+             patch('garmin.fetch_recent_activities', return_value=[fake_act]), \
+             patch('garmin.find_unlogged', return_value=[fake_act]):
+            r = self.client.get('/GarminSync')
+        self.assertIn(b'Morning Run', r.data)
+        self.assertIn(b'99', r.data)
+
+    def test_add_workout_from_garmin_returns_200(self):
+        fake_form = {
+            'val_date': '2024-06-01', 'val_location': 'Track',
+            'val_objective': '', 'val_notes': 'Rep / Pace / AHR / RPE / Dist\n1 / 4:11 / 135 /   / 1.00 km\nTotal distance was 1.00 km in 4:11 minutes',
+            'val_distance': '10.00', 'val_recovery': '0:00:00',
+            'val_easy': '0:00:00', 'val_threshold': '0:00:00',
+            'val_interval': '0:00:00', 'val_repetition': '0:00:00',
+            'val_wo_type': 'Run',
+        }
+        with patch('garmin.get_client'), \
+             patch('garmin.fetch_laps', return_value=[]), \
+             patch('garmin.map_to_form', return_value=fake_form), \
+             patch.object(__import__('garminconnect').Garmin, 'get_activity_details', return_value={}):
+            r = self.client.get('/AddWorkoutFromGarmin/12345')
+        self.assertEqual(r.status_code, 200)
+        self.assertIn(b'Track', r.data)
+
+    def test_add_workout_from_garmin_fetch_error_shows_error(self):
+        with patch('garmin.get_client', side_effect=Exception('auth failed')):
+            r = self.client.get('/AddWorkoutFromGarmin/12345')
+        self.assertEqual(r.status_code, 200)
+        self.assertIn(b'Could not load Garmin activity', r.data)
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)
