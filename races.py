@@ -1,4 +1,4 @@
-#!/usr/bin/env python3.9
+#!/usr/bin/env python3
 
 from flask import Flask, render_template, request, g
 import sqlite3
@@ -8,11 +8,11 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-# local imports
 import sql
 from config import DATABASE
 
 app = Flask(__name__)
+
 
 def get_db():
     db = getattr(g, '_database', None)
@@ -20,7 +20,7 @@ def get_db():
         db = g._database = sqlite3.connect(DATABASE)
     return db
 
-# No cacheing at all for API endpoints.
+
 @app.after_request
 def add_header(r):
     r.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
@@ -28,70 +28,66 @@ def add_header(r):
     r.headers["Expires"] = "0"
     return r
 
+
 @app.teardown_appcontext
 def close_connection(exception):
     db = getattr(g, '_database', None)
     if db is not None:
         db.close()
 
-@app.route('/', methods = ["GET", "POST"])
-def Homepage():
+
+@app.route('/', methods=["GET", "POST"])
+def homepage():
     return render_template("homepage.html")
 
-@app.route('/Workout52Weeks', methods = ["GET", "POST"])
-def Workout52Weeks():
+
+@app.route('/Workout52Weeks', methods=["GET", "POST"])
+def workout_52weeks():
     conn = get_db()
     cur = conn.cursor()
+    intro, thead, tbody, summary = sql.get_log_52weeks(conn, cur)
+    return render_template("ListInfo.html", title='Workout Statistics',
+                           intro=intro, thead=thead, tbody=tbody, summary=summary)
 
-    [intro, thead, tbody, summary] = sql.get_log_52weeks(conn, cur)
-    title = 'Workout Statistics'
 
-    return render_template("ListInfo.html", title = title, intro = intro, thead = thead, tbody = tbody, summary = summary)
-
-@app.route('/WorkoutWeekStats', methods = ["GET", "POST"])
-def WorkoutWeekStats():
+@app.route('/WorkoutWeekStats', methods=["GET", "POST"])
+def workout_week_stats():
     conn = get_db()
     cur = conn.cursor()
+    intro, thead, tbody, summary = sql.get_log_week_stats(conn, cur)
+    return render_template("ListInfo.html", title='Workout Statistics',
+                           intro=intro, thead=thead, tbody=tbody, summary=summary)
 
-    [intro, thead, tbody, summary] = sql.get_log_week_stats(conn, cur)
-    title = 'Workout Statistics'
 
-    return render_template("ListInfo.html", title = title, intro = intro, thead = thead, tbody = tbody, summary = summary)
-
-@app.route('/Workout12Months', methods = ["GET", "POST"])
-def Workout12Months():
+@app.route('/Workout12Months', methods=["GET", "POST"])
+def workout_12months():
     conn = get_db()
     cur = conn.cursor()
-
-    [intro, thead, tbody, summary] = sql.get_log_12months(conn, cur)
-    title = 'Workout Statistics'
-
-    return render_template("ListInfo.html", title = title, intro = intro, thead = thead, tbody = tbody, summary = summary)
+    intro, thead, tbody, summary = sql.get_log_12months(conn, cur)
+    return render_template("ListInfo.html", title='Workout Statistics',
+                           intro=intro, thead=thead, tbody=tbody, summary=summary)
 
 
-@app.route('/WorkoutMonthStats', methods = ["GET", "POST"])
-def WorkoutMonthStats():
+@app.route('/WorkoutMonthStats', methods=["GET", "POST"])
+def workout_month_stats():
     conn = get_db()
     cur = conn.cursor()
+    intro, thead, tbody, summary = sql.get_log_month_stats(conn, cur)
+    return render_template("ListInfo.html", title='Workout Statistics',
+                           intro=intro, thead=thead, tbody=tbody, summary=summary)
 
-    [intro, thead, tbody, summary] = sql.get_log_month_stats(conn, cur)
-    title = 'Workout Statistics'
 
-    return render_template("ListInfo.html", title = title, intro = intro, thead = thead, tbody = tbody, summary = summary)
-
-@app.route('/ListWorkouts', methods = ["GET", "POST"])
-def ListWorkouts():
-
+@app.route('/ListWorkouts', methods=["GET", "POST"])
+def list_workouts():
     conn = get_db()
     cur = conn.cursor()
+    intro, thead, tbody, summary = sql.get_workouts(cur)
+    return render_template("ListInfo.html", title='Listing of Workouts',
+                           intro='', thead=thead, tbody=tbody, summary=summary)
 
-    [intro, thead, tbody, summary] = sql.get_workouts(cur)
-    title = 'Listing of Workouts'
-    intro = ''
-    return render_template("ListInfo.html", title = title, intro = intro, thead = thead, tbody = tbody, summary = summary)
 
-@app.route('/ChangeWorkout/<id>', methods = ["GET", "POST"])
-def ChangeWorkout(id):
+@app.route('/ChangeWorkout/<id>', methods=["GET", "POST"])
+def change_workout(id):
     conn = get_db()
     cur = conn.cursor()
     logger.debug('ChangeWorkout id=%s', id)
@@ -110,15 +106,11 @@ def ChangeWorkout(id):
     val_repetition = wo[10]
     val_shoe = wo[11]
 
-    cur.execute('SELECT shortName FROM shoes where retired = 0 ORDER BY shortName')
-    shoe_list = [val_shoe]
-    for row in cur:
-        shoe_list.append(row[0])
+    cur.execute('SELECT shortName FROM shoes WHERE retired = 0 ORDER BY shortName')
+    shoe_list = [val_shoe] + [row[0] for row in cur]
 
     cur.execute('SELECT type FROM wo_type')
-    wo_type_list = [val_wo_type]
-    for row in cur:
-        wo_type_list.append(row[0])
+    wo_type_list = [val_wo_type] + [row[0] for row in cur]
 
     if request.method == "POST":
         date = request.form['date']
@@ -140,44 +132,45 @@ def ChangeWorkout(id):
         cur.execute('SELECT id FROM wo_type WHERE type = ?', (wo_type,))
         wo_type_id = cur.fetchone()[0]
 
-        sql.change_workout(conn, cur, id, date, location, wo_type_id, objective, notes, distance, recovery, easy, threshold, interval, repetition, shoe_id)
+        sql.change_workout(conn, cur, id, date, location, wo_type_id, objective, notes,
+                           distance, recovery, easy, threshold, interval, repetition, shoe_id)
 
-        [intro, thead, tbody, summary] = sql.get_workouts(cur)
-        title = 'Listing of Workouts'
-        return render_template("ListInfo.html", title = title, intro = intro, thead = thead, tbody = tbody, summary = summary)
+        intro, thead, tbody, summary = sql.get_workouts(cur)
+        return render_template("ListInfo.html", title='Listing of Workouts',
+                               intro=intro, thead=thead, tbody=tbody, summary=summary)
 
-    return(render_template("ChangeWorkout.html", val_date = val_date,
-                val_location = val_location, val_wo_type = val_wo_type, wo_type_list = wo_type_list, val_objective = val_objective,
-                val_notes = val_notes, val_distance = val_distance,
-                val_recovery = val_recovery, val_easy = val_easy,
-                val_threshold =  val_threshold, val_interval = val_interval,
-                val_repetition = val_repetition, val_shoe = val_shoe, shoe_list = shoe_list))
+    return render_template("ChangeWorkout.html",
+                           val_date=val_date, val_location=val_location,
+                           val_wo_type=val_wo_type, wo_type_list=wo_type_list,
+                           val_objective=val_objective, val_notes=val_notes,
+                           val_distance=val_distance, val_recovery=val_recovery,
+                           val_easy=val_easy, val_threshold=val_threshold,
+                           val_interval=val_interval, val_repetition=val_repetition,
+                           val_shoe=val_shoe, shoe_list=shoe_list)
 
-@app.route('/ListAthletes', methods = ["GET", "POST"])
-def ListAthletes():
+
+@app.route('/ListAthletes', methods=["GET", "POST"])
+def list_athletes():
     conn = get_db()
     cur = conn.cursor()
-    title = 'Listing of Athletes'
-    [intro, thead, tbody, summary] = sql.get_athletes(conn, cur, Letter = 'C')
-    return render_template("ListInfo.html", title = title, intro = intro, thead = thead, tbody = tbody, summary = summary)
+    intro, thead, tbody, summary = sql.get_athletes(conn, cur, letter='C')
+    return render_template("ListInfo.html", title='Listing of Athletes',
+                           intro=intro, thead=thead, tbody=tbody, summary=summary)
 
-@app.route('/ListHealth', methods = ["GET", "POST"])
-def ListHealth():
 
+@app.route('/ListHealth', methods=["GET", "POST"])
+def list_health():
     conn = get_db()
     cur = conn.cursor()
-
-    [intro, thead, tbody, summary] = sql.get_health_list(cur)
-    title = 'Listing of Health'
-    intro = ''
-    return render_template("ListInfo.html", title = title, intro = intro, thead = thead, tbody = tbody, summary = summary)
+    intro, thead, tbody, summary = sql.get_health_list(cur)
+    return render_template("ListInfo.html", title='Listing of Health',
+                           intro='', thead=thead, tbody=tbody, summary=summary)
 
 
-@app.route('/ChangeHealth/<id>', methods = ["GET", "POST"])
-def ChangeHealth(id):
+@app.route('/ChangeHealth/<id>', methods=["GET", "POST"])
+def change_health(id):
     conn = get_db()
     cur = conn.cursor()
-
     health = sql.get_health(cur, id)
 
     val_date = health[1]
@@ -186,7 +179,7 @@ def ChangeHealth(id):
     val_waist_bb = health[4]
     val_hips = health[5]
     val_chest = health[6]
-    val_HR = health[7]
+    val_hr = health[7]
     val_notes = health[8]
 
     if request.method == "POST":
@@ -196,34 +189,26 @@ def ChangeHealth(id):
         waist_bb = request.form['waist_bb']
         hips = request.form['hips']
         chest = request.form['chest']
-        HR = request.form['HR']
+        hr = request.form['HR']
         notes = request.form['notes']
 
-        sql.change_health(conn, cur, id, date, weight, waist, waist_bb, hips, chest, notes, HR)
+        sql.change_health(conn, cur, id, date, weight, waist, waist_bb, hips, chest, notes, hr)
 
-        [intro, thead, tbody, summary] = sql.get_health_list(cur)
-        title = 'Listing of Health'
-        intro = ''
-        return render_template("ListInfo.html", title = title, intro = intro, thead = thead, tbody = tbody, summary = summary)
+        intro, thead, tbody, summary = sql.get_health_list(cur)
+        return render_template("ListInfo.html", title='Listing of Health',
+                               intro='', thead=thead, tbody=tbody, summary=summary)
 
-    return(render_template("AddHealth.html", val_date = val_date,
-                val_weight = val_weight, val_waist = val_waist,
-                val_waist_bb =  val_waist_bb, val_chest = val_chest,
-                val_hips = val_hips, val_notes = val_notes, val_HR = val_HR))
+    return render_template("AddHealth.html",
+                           val_date=val_date, val_weight=val_weight,
+                           val_waist=val_waist, val_waist_bb=val_waist_bb,
+                           val_chest=val_chest, val_hips=val_hips,
+                           val_notes=val_notes, val_HR=val_hr)
 
 
-@app.route('/AddHealth', methods = ["GET", "POST"])
-def AddHealth():
+@app.route('/AddHealth', methods=["GET", "POST"])
+def add_health():
     conn = get_db()
     cur = conn.cursor()
-    val_date = datetime.date.today().strftime('%Y-%m-%d')
-    val_weight = '0.0'
-    val_waist = '0.0'
-    val_waist_bb = '0.0'
-    val_chest = '0.0'
-    val_hips = '0.0'
-    val_notes = 'notes...'
-    val_HR = 60
 
     if request.method == "POST":
         date = request.form['date']
@@ -232,55 +217,38 @@ def AddHealth():
         waist_bb = request.form['waist_bb']
         chest = request.form['chest']
         hips = request.form['hips']
-        HR = request.form['HR']
+        hr = request.form['HR']
         notes = request.form['notes']
-        sql.add_health(conn, cur, date, weight, waist, waist_bb, hips, chest, notes, HR)
+        sql.add_health(conn, cur, date, weight, waist, waist_bb, hips, chest, notes, hr)
 
-        [intro, thead, tbody, summary] = sql.get_health_list(cur)
-        title = 'Listing of Health'
-        intro = ''
-        return render_template("ListInfo.html", title = title, intro = intro, thead = thead, tbody = tbody, summary = summary)
+        intro, thead, tbody, summary = sql.get_health_list(cur)
+        return render_template("ListInfo.html", title='Listing of Health',
+                               intro='', thead=thead, tbody=tbody, summary=summary)
 
-
-    return(render_template("AddHealth.html", val_date = val_date,
-                val_weight = val_weight, val_waist = val_waist,
-                val_waist_bb =  val_waist_bb, val_chest = val_chest,
-                val_hips = val_hips, val_notes = val_notes, val_HR = val_HR))
+    return render_template("AddHealth.html",
+                           val_date=datetime.date.today().strftime('%Y-%m-%d'),
+                           val_weight='0.0', val_waist='0.0', val_waist_bb='0.0',
+                           val_chest='0.0', val_hips='0.0', val_notes='notes...', val_HR=60)
 
 
-@app.route('/PlotWeight', methods = ["GET", "POST"])
-def PlotWeight():
+@app.route('/PlotWeight', methods=["GET", "POST"])
+def plot_weight():
     conn = get_db()
     cur = conn.cursor()
     sql.get_weight_report(cur)
-    return(render_template("PlotWeight.html"))
+    return render_template("PlotWeight.html")
 
-@app.route('/AddWorkout', methods = ["GET", "POST"])
-def AddWorkout():
+
+@app.route('/AddWorkout', methods=["GET", "POST"])
+def add_workout():
     conn = get_db()
     cur = conn.cursor()
 
-    val_date = datetime.date.today().strftime('%Y-%m-%d')
-    val_location = 'Location...'
-    val_objective = 'Objective'
-    val_notes = 'Notes...'
-    val_distance = '10.0'
-    val_recovery = '0:00:00'
-    val_easy = '0:00:00'
-    val_threshold = '0:00:00'
-    val_interval = '0:00:00'
-    val_repetition = '0:00:00'
-
-    cur.execute('SELECT shortName FROM shoes where retired = 0 ORDER BY shortName')
-    shoe_list = []
-    for row in cur:
-        shoe_list.append(row[0])
+    cur.execute('SELECT shortName FROM shoes WHERE retired = 0 ORDER BY shortName')
+    shoe_list = [row[0] for row in cur]
 
     cur.execute('SELECT type FROM wo_type')
-    wo_type_list = []
-    for row in cur:
-        wo_type_list.append(row[0])
-
+    wo_type_list = [row[0] for row in cur]
 
     if request.method == "POST":
         logger.debug('AddWorkout POST request')
@@ -305,72 +273,71 @@ def AddWorkout():
         cur.execute('SELECT id FROM wo_type WHERE type = ?', (wo_type,))
         wo_type_id = cur.fetchone()[0]
 
+        sql.add_workout(conn, cur, date, location, wo_type_id, objective, notes,
+                        distance, recovery, easy, threshold, interval, repetition, shoe_id)
 
-        sql.add_workout(conn, cur, date, location, wo_type_id, objective, notes, distance, recovery, easy, threshold, interval, repetition, shoe_id)
+        intro, thead, tbody, summary = sql.get_workouts(cur)
+        return render_template("ListInfo.html", title='Listing of Workouts',
+                               intro=intro, thead=thead, tbody=tbody, summary=summary)
 
-        [intro, thead, tbody, summary] = sql.get_workouts(cur)
-        title = 'Listing of Workouts'
-        return render_template("ListInfo.html", title = title, intro = intro, thead = thead, tbody = tbody, summary = summary)
+    return render_template("AddWorkout.html",
+                           val_date=datetime.date.today().strftime('%Y-%m-%d'),
+                           val_location='Location...', wo_type_list=wo_type_list,
+                           val_objective='Objective', val_notes='Notes...',
+                           val_distance='10.0', val_recovery='0:00:00',
+                           val_easy='0:00:00', val_threshold='0:00:00',
+                           val_interval='0:00:00', val_repetition='0:00:00',
+                           shoe_list=shoe_list)
 
 
-    return(render_template("AddWorkout.html", val_date = val_date,
-                val_location = val_location, wo_type_list = wo_type_list, val_objective = val_objective,
-                val_notes = val_notes, val_distance = val_distance,
-                val_recovery = val_recovery, val_easy = val_easy,
-                val_threshold =  val_threshold, val_interval = val_interval,
-                val_repetition = val_repetition, shoe_list = shoe_list))
-
-
-@app.route('/ListShoes', methods = ["GET", "POST"])
-def ListShoes():
-
+@app.route('/ListShoes', methods=["GET", "POST"])
+def list_shoes():
     conn = get_db()
     cur = conn.cursor()
+    intro, thead, tbody, summary = sql.get_shoes(cur)
+    return render_template("ListInfo.html", title='Listing of Shoes',
+                           intro='', thead=thead, tbody=tbody, summary=summary)
 
-    [intro, thead, tbody, summary] = sql.get_shoes(cur)
-    title = 'Listing of Shoes'
-    intro = ''
-    return render_template("ListInfo.html", title = title, intro = intro, thead = thead, tbody = tbody, summary = summary)
 
 @app.route('/ManageShoes', methods=["GET"])
-def ManageShoes():
+def manage_shoes():
     conn = get_db()
     cur = conn.cursor()
-    [intro, thead, tbody, summary] = sql.get_all_shoes(cur)
-    title = 'Manage Shoes'
-    return render_template("ListInfo.html", title=title, intro=intro, thead=thead, tbody=tbody, summary=summary)
+    intro, thead, tbody, summary = sql.get_all_shoes(cur)
+    return render_template("ListInfo.html", title='Manage Shoes',
+                           intro=intro, thead=thead, tbody=tbody, summary=summary)
+
 
 @app.route('/RetireShoe/<id>', methods=["GET"])
-def RetireShoe(id):
+def retire_shoe(id):
     conn = get_db()
     cur = conn.cursor()
     sql.retire_shoe(conn, cur, id)
-    [intro, thead, tbody, summary] = sql.get_all_shoes(cur)
-    title = 'Manage Shoes'
-    return render_template("ListInfo.html", title=title, intro=intro, thead=thead, tbody=tbody, summary=summary)
+    intro, thead, tbody, summary = sql.get_all_shoes(cur)
+    return render_template("ListInfo.html", title='Manage Shoes',
+                           intro=intro, thead=thead, tbody=tbody, summary=summary)
 
-@app.route('/AddShoes', methods = ["GET", "POST"])
-def Addshoes():
 
+@app.route('/AddShoes', methods=["GET", "POST"])
+def add_shoes():
     conn = get_db()
     cur = conn.cursor()
-
-    [intro,thead,tbody,summary] = sql.get_shoes(cur)
+    intro, thead, tbody, summary = sql.get_shoes(cur)
 
     if request.method == "POST":
-        shortName = request.form['shortName']
-        longName = request.form['longName']
-        sql.add_shoes(conn, cur, shortName, longName)
-        [intro,thead,tbody,summary] = sql.get_shoes(cur)
+        short_name = request.form['shortName']
+        long_name = request.form['longName']
+        sql.add_shoes(conn, cur, short_name, long_name)
+        intro, thead, tbody, summary = sql.get_shoes(cur)
 
-    return render_template("ShoeInput.html", intro=intro, thead=thead, tbody=tbody, val_shortName='', val_longName='')
+    return render_template("ShoeInput.html", intro=intro, thead=thead, tbody=tbody,
+                           val_shortName='', val_longName='')
 
-@app.route('/Compare', methods = ["GET", "POST"])
+
+@app.route('/Compare', methods=["GET", "POST"])
 def compare():
-
     conn = get_db()
     cur = conn.cursor()
-
     races = sql.get_races(cur)
 
     if request.method == "POST":
@@ -380,23 +347,27 @@ def compare():
         max_time = request.form['max_time']
         percent = request.form['percent']
 
-        id_1 = int(re.search(r'\d+',re.search(r'\<\d+\>',race1).group()).group())
-        id_2 = int(re.search(r'\d+',re.search(r'\<\d+\>',race2).group()).group())
-        [eventname1, date1] = sql.get_race_info(cur,id_1)
-        [eventname2, date2] = sql.get_race_info(cur,id_2)
-        [intro, thead, tbody, summary] = sql.compare_races(cur, eventname1, date1, eventname2, date2, min_time, max_time, float(percent)/100)
-        title = 'Comparison of Race Results'
-        return render_template("ListInfo.html", title = title, intro = intro, thead = thead, tbody = tbody, summary = summary)
+        id_1 = int(re.search(r'\d+', re.search(r'\<\d+\>', race1).group()).group())
+        id_2 = int(re.search(r'\d+', re.search(r'\<\d+\>', race2).group()).group())
+        event_name1, date1 = sql.get_race_info(cur, id_1)
+        event_name2, date2 = sql.get_race_info(cur, id_2)
+        intro, thead, tbody, summary = sql.compare_races(
+            cur, event_name1, date1, event_name2, date2, min_time, max_time, float(percent) / 100
+        )
+        return render_template("ListInfo.html", title='Comparison of Race Results',
+                               intro=intro, thead=thead, tbody=tbody, summary=summary)
 
-    return render_template("CompareRaces.html", races = races)
+    return render_template("CompareRaces.html", races=races)
 
-@app.route('/user/<username>', methods = ["GET", "POST"])
+
+@app.route('/user/<username>', methods=["GET", "POST"])
 def show_user_races(username):
     logger.debug('show_user_races: %s', username)
     cur = get_db().cursor()
-    [intro, thead, tbody, summary] = sql.get_races_for_athlete(cur, username)
-    title = 'Races by Athlete'
-    return render_template("ListInfo.html", title = title, intro = intro, thead = thead, tbody = tbody, summary = summary)
+    intro, thead, tbody, summary = sql.get_races_for_athlete(cur, username)
+    return render_template("ListInfo.html", title='Races by Athlete',
+                           intro=intro, thead=thead, tbody=tbody, summary=summary)
+
 
 if __name__ == "__main__":
     # TODO: set debug=False before deploying to production
