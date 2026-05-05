@@ -1313,9 +1313,9 @@ class TestFlaskRoutes(unittest.TestCase):
     )
 
     def test_add_workout_post_valid_shows_workout_list(self):
-        r = self.client.post('/AddWorkout', data=self._VALID_WORKOUT)
+        r = self.client.post('/AddWorkout', data=self._VALID_WORKOUT, follow_redirects=True)
         self.assertEqual(r.status_code, 200)
-        self.assertIn(b'Listing of Workouts', r.data)
+        self.assertIn(b'Workouts', r.data)
 
     def test_add_workout_post_invalid_date_shows_error(self):
         r = self.client.post('/AddWorkout', data={**self._VALID_WORKOUT, 'date': 'bad-date'})
@@ -1350,9 +1350,9 @@ class TestFlaskRoutes(unittest.TestCase):
     )
 
     def test_add_health_post_valid_shows_health_list(self):
-        r = self.client.post('/AddHealth', data=self._VALID_HEALTH)
+        r = self.client.post('/AddHealth', data=self._VALID_HEALTH, follow_redirects=True)
         self.assertEqual(r.status_code, 200)
-        self.assertIn(b'Listing of Health', r.data)
+        self.assertIn(b'Health', r.data)
 
     def test_add_health_post_invalid_date_shows_error(self):
         r = self.client.post('/AddHealth', data={**self._VALID_HEALTH, 'date': 'bad-date'})
@@ -1405,6 +1405,27 @@ class TestFlaskRoutes(unittest.TestCase):
         cur.execute('SELECT retired FROM Shoes WHERE id = 1')
         self.assertEqual(cur.fetchone()[0], 1)
         conn.close()
+
+    def test_list_workouts_search_returns_200(self):
+        self.assertEqual(self.client.get('/ListWorkouts?q=TrackA').status_code, 200)
+
+    def test_list_workouts_search_filters_results(self):
+        self.client.post('/AddWorkout', data=self._VALID_WORKOUT, follow_redirects=True)
+        r = self.client.get('/ListWorkouts?q=TrackA')
+        self.assertIn(b'TrackA', r.data)
+
+    def test_list_workouts_search_no_match_shows_zero(self):
+        r = self.client.get('/ListWorkouts?q=xyzzy_no_match')
+        self.assertIn(b'0 workout', r.data)
+
+    def test_list_health_search_returns_200(self):
+        self.assertEqual(self.client.get('/ListHealth?q=2024').status_code, 200)
+
+    def test_list_workouts_pagination_param(self):
+        self.assertEqual(self.client.get('/ListWorkouts?page=1').status_code, 200)
+
+    def test_list_workouts_bad_page_param_defaults_to_1(self):
+        self.assertEqual(self.client.get('/ListWorkouts?page=abc').status_code, 200)
 
     def test_retire_shoe_twice_restores_active(self):
         self.client.get('/RetireShoe/1')

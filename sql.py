@@ -477,6 +477,106 @@ def get_workout(cur, id) -> tuple:
     return cur.fetchone()
 
 
+_WORKOUT_COLS = (
+    'Log.id, date, location, objective, notes, dist, time, pace, recovery, easy, '
+    'threshold, interval, repetition, p8020, jd_int, shortName, type'
+)
+_WORKOUT_JOINS = (
+    'FROM Log '
+    'JOIN Shoes ON Log.ShoeID = Shoes.id '
+    'JOIN wo_type ON Log.wo_type = wo_type.id'
+)
+_WORKOUT_THEAD = ['ID', 'Run Date', 'Workout Description', 'Dist', 'Time', 'Pace',
+                  'Time in Zones', '80/20', 'JD Intensity', 'Shoes']
+
+
+def _build_workout_row(row: list) -> list:
+    id_tag = Markup(f'<strong><a href=/ChangeWorkout/{row[0]}>{row[0]}</a></strong>')
+    location = row[2] or ''
+    objective = row[3] or ''
+    notes = row[4] or ''
+    description = (Markup('<strong>Location: </strong>') + escape(location) +
+                   Markup('<br /><strong>WO Type: </strong>') + escape(row[16]) +
+                   Markup('<br /><strong>Objective: </strong>') + escape(objective) +
+                   Markup('<br /><strong>Notes: </strong>') + escape(notes))
+    zones = zones_str(row[8], row[9], row[10], row[11], row[12])
+    return [id_tag, Markup(str(row[1])), description, str(row[5]),
+            row[6], row[7], zones, f'{row[13]: .1f}%', f'{row[14]: .2f}', row[15]]
+
+
+def search_workouts(cur, query: str = '', page: int = 1,
+                    page_size: int = 25) -> tuple[list, list, str, int, int]:
+    """Return paginated workout rows, optionally filtered by a full-text phrase.
+
+    Returns (thead, tbody, summary, total_count, total_pages).
+    Searches date, location, objective, notes, workout type, and shoe name.
+    """
+    like = f'%{query}%'
+    if query:
+        where = (
+            'WHERE location LIKE ? OR objective LIKE ? OR notes LIKE ? '
+            'OR type LIKE ? OR date LIKE ? OR shortName LIKE ?'
+        )
+        params: list = [like] * 6
+    else:
+        where = ''
+        params = []
+
+    cur.execute(f'SELECT COUNT(*) {_WORKOUT_JOINS} {where}', params)
+    total = cur.fetchone()[0]
+    total_pages = max(1, (total + page_size - 1) // page_size)
+    offset = (page - 1) * page_size
+
+    cur.execute(
+        f'SELECT {_WORKOUT_COLS} {_WORKOUT_JOINS} {where} ORDER BY date DESC LIMIT ? OFFSET ?',
+        params + [page_size, offset]
+    )
+    tbody = [_build_workout_row(list(row)) for row in cur]
+
+    summary = f'{total} workout(s)'
+    if query:
+        summary += f' matching "{escape(query)}"'
+    return _WORKOUT_THEAD, tbody, summary, total, total_pages
+
+
+def search_health(cur, query: str = '', page: int = 1,
+                  page_size: int = 25) -> tuple[list, list, str, int, int]:
+    """Return paginated health rows, optionally filtered by a full-text phrase.
+
+    Returns (thead, tbody, summary, total_count, total_pages).
+    Searches date and notes.
+    """
+    like = f'%{query}%'
+    if query:
+        where = 'WHERE date LIKE ? OR notes LIKE ?'
+        params: list = [like, like]
+    else:
+        where = ''
+        params = []
+
+    cur.execute(f'SELECT COUNT(*) FROM Health {where}', params)
+    total = cur.fetchone()[0]
+    total_pages = max(1, (total + page_size - 1) // page_size)
+    offset = (page - 1) * page_size
+
+    cur.execute(
+        f'SELECT id, date, weight, smallWaist, bbWaist, hip, chest, HR, notes '
+        f'FROM Health {where} ORDER BY date DESC LIMIT ? OFFSET ?',
+        params + [page_size, offset]
+    )
+    thead = ['ID', 'Date', 'Weight', 'Waist', 'Waist at BB', 'Hip', 'Chest', 'HR', 'Notes']
+    tbody = []
+    for row in cur:
+        row = list(row)
+        row[0] = Markup(f'<strong><a href=/ChangeHealth/{row[0]}>{row[0]}</a></strong>')
+        tbody.append(row)
+
+    summary = f'{total} health record(s)'
+    if query:
+        summary += f' matching "{escape(query)}"'
+    return thead, tbody, summary, total, total_pages
+
+
 def get_workouts(cur) -> tuple[list, list, list, str]:
     """Return intro/thead/tbody/summary for all workout log entries."""
     cur.execute(

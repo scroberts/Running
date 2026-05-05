@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  {% include 'header.html' %}
+
+  <body>
+    <div class="container">
+        <nav class="navbar navbar-inverse navbar-fixed-top">
+            {% include 'navbar.html' %}
+        </nav>
+
+        <h1 class="text-center">Health Records</h1>
+
+        <form method="GET" action="/ListHealth">
+          <div class="input-group" style="margin-bottom:12px;">
+            <input type="text" name="q" class="form-control"
+                   placeholder="Search by date or notes..."
+                   value="{{ query }}">
+            <span class="input-group-btn">
+              <button type="submit" class="btn btn-primary">Search</button>
+              {% if query %}
+              <a href="/ListHealth" class="btn btn-default">Clear</a>
+              {% endif %}
+            </span>
+          </div>
+        </form>
+
+        <h4 class="text-center">{{ summary }}</h4>
+
+        <table class="table table-striped">
+          <thead>
+            <tr>
+              {% for col in thead %}
+              <th>{{ col }}</th>
+              {% endfor %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in tbody %}
+            <tr>
+              {% for col in row %}
+              <td>{{ col }}</td>
+              {% endfor %}
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+
+        {% if total_pages > 1 %}
+        <nav>
+          <ul class="pagination">
+            <li{% if page <= 1 %} class="disabled"{% endif %}>
+              <a href="{{ url_for('list_health', q=query, page=page-1) }}">&laquo; Prev</a>
+            </li>
+            <li class="active"><a>Page {{ page }} of {{ total_pages }}</a></li>
+            <li{% if page >= total_pages %} class="disabled"{% endif %}>
+              <a href="{{ url_for('list_health', q=query, page=page+1) }}">Next &raquo;</a>
+            </li>
+          </ul>
+        </nav>
+        {% endif %}
+
+    </div>
+
+    {% include 'footer.html' %}
+  </body>
+</html>

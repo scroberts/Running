@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from flask import Flask, render_template, request, g
+from flask import Flask, render_template, request, g, redirect, url_for
 import sqlite3
 import re
 import datetime
@@ -132,13 +132,18 @@ def workout_month_stats():
                            intro=intro, thead=thead, tbody=tbody, summary=summary)
 
 
-@app.route('/ListWorkouts', methods=["GET", "POST"])
+@app.route('/ListWorkouts', methods=["GET"])
 def list_workouts():
     conn = get_db()
     cur = conn.cursor()
-    intro, thead, tbody, summary = sql.get_workouts(cur)
-    return render_template("ListInfo.html", title='Listing of Workouts',
-                           intro='', thead=thead, tbody=tbody, summary=summary)
+    query = request.args.get('q', '').strip()
+    try:
+        page = max(1, int(request.args.get('page', 1)))
+    except (ValueError, TypeError):
+        page = 1
+    thead, tbody, summary, total, total_pages = sql.search_workouts(cur, query=query, page=page)
+    return render_template("ListWorkouts.html", thead=thead, tbody=tbody, summary=summary,
+                           query=query, page=page, total_pages=total_pages)
 
 
 @app.route('/ChangeWorkout/<id>', methods=["GET", "POST"])
@@ -193,9 +198,7 @@ def change_workout(id):
             sql.change_workout(conn, cur, id, date, location, wo_type_id, objective, notes,
                                distance, recovery, easy, threshold, interval, repetition, shoe_id)
 
-            intro, thead, tbody, summary = sql.get_workouts(cur)
-            return render_template("ListInfo.html", title='Listing of Workouts',
-                                   intro=intro, thead=thead, tbody=tbody, summary=summary)
+            return redirect(url_for('list_workouts'))
 
         val_date, val_location, val_wo_type = date, location, wo_type
         val_objective, val_notes, val_distance = objective, notes, distance
@@ -222,13 +225,18 @@ def list_athletes():
                            intro=intro, thead=thead, tbody=tbody, summary=summary)
 
 
-@app.route('/ListHealth', methods=["GET", "POST"])
+@app.route('/ListHealth', methods=["GET"])
 def list_health():
     conn = get_db()
     cur = conn.cursor()
-    intro, thead, tbody, summary = sql.get_health_list(cur)
-    return render_template("ListInfo.html", title='Listing of Health',
-                           intro='', thead=thead, tbody=tbody, summary=summary)
+    query = request.args.get('q', '').strip()
+    try:
+        page = max(1, int(request.args.get('page', 1)))
+    except (ValueError, TypeError):
+        page = 1
+    thead, tbody, summary, total, total_pages = sql.search_health(cur, query=query, page=page)
+    return render_template("ListHealth.html", thead=thead, tbody=tbody, summary=summary,
+                           query=query, page=page, total_pages=total_pages)
 
 
 @app.route('/ChangeHealth/<id>', methods=["GET", "POST"])
@@ -260,9 +268,7 @@ def change_health(id):
         errors = _validate_health(date, weight, waist, waist_bb, hips, chest, hr)
         if not errors:
             sql.change_health(conn, cur, id, date, weight, waist, waist_bb, hips, chest, notes, hr)
-            intro, thead, tbody, summary = sql.get_health_list(cur)
-            return render_template("ListInfo.html", title='Listing of Health',
-                                   intro='', thead=thead, tbody=tbody, summary=summary)
+            return redirect(url_for('list_health'))
 
         val_date, val_weight, val_waist = date, weight, waist
         val_waist_bb, val_hips, val_chest, val_hr, val_notes = waist_bb, hips, chest, hr, notes
@@ -297,9 +303,7 @@ def add_health():
         errors = _validate_health(date, weight, waist, waist_bb, hips, chest, hr)
         if not errors:
             sql.add_health(conn, cur, date, weight, waist, waist_bb, hips, chest, notes, hr)
-            intro, thead, tbody, summary = sql.get_health_list(cur)
-            return render_template("ListInfo.html", title='Listing of Health',
-                                   intro='', thead=thead, tbody=tbody, summary=summary)
+            return redirect(url_for('list_health'))
 
         defaults = dict(val_date=date, val_weight=weight, val_waist=waist,
                         val_waist_bb=waist_bb, val_chest=chest, val_hips=hips,
@@ -361,9 +365,7 @@ def add_workout():
             sql.add_workout(conn, cur, date, location, wo_type_id, objective, notes,
                             distance, recovery, easy, threshold, interval, repetition, shoe_id)
 
-            intro, thead, tbody, summary = sql.get_workouts(cur)
-            return render_template("ListInfo.html", title='Listing of Workouts',
-                                   intro=intro, thead=thead, tbody=tbody, summary=summary)
+            return redirect(url_for('list_workouts'))
 
         defaults = dict(val_date=date, val_location=location, val_objective=objective,
                         val_notes=notes, val_distance=distance, val_recovery=recovery,
