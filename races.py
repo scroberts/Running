@@ -13,6 +13,61 @@ from config import DATABASE
 
 app = Flask(__name__)
 
+TIME_PATTERN = r'^\d+:[0-5]\d:[0-5]\d$'
+
+
+def _validate_workout(date: str, distance: str, recovery: str, easy: str,
+                      threshold: str, interval: str, repetition: str) -> list[str]:
+    """Return validation error messages for workout form fields."""
+    errors = []
+    try:
+        datetime.datetime.strptime(date, '%Y-%m-%d')
+    except ValueError:
+        errors.append('Date must be in YYYY-MM-DD format.')
+    try:
+        if float(distance) <= 0:
+            errors.append('Distance must be a positive number.')
+    except (ValueError, TypeError):
+        errors.append('Distance must be a number.')
+    for label, val in [('Recovery', recovery), ('Easy', easy), ('Threshold', threshold),
+                       ('Interval', interval), ('Repetition', repetition)]:
+        if not re.match(TIME_PATTERN, val):
+            errors.append(f'{label} time must be in H:MM:SS format (e.g. 0:45:00).')
+    return errors
+
+
+def _validate_health(date: str, weight: str, waist: str, waist_bb: str,
+                     hips: str, chest: str, hr: str) -> list[str]:
+    """Return validation error messages for health form fields."""
+    errors = []
+    try:
+        datetime.datetime.strptime(date, '%Y-%m-%d')
+    except ValueError:
+        errors.append('Date must be in YYYY-MM-DD format.')
+    for label, val in [('Weight', weight), ('Waist', waist), ('Waist BB', waist_bb),
+                       ('Hips', hips), ('Chest', chest)]:
+        try:
+            if float(val) < 0:
+                errors.append(f'{label} must be a non-negative number.')
+        except (ValueError, TypeError):
+            errors.append(f'{label} must be a number.')
+    try:
+        if int(float(hr)) <= 0:
+            errors.append('Heart rate must be a positive number.')
+    except (ValueError, TypeError):
+        errors.append('Heart rate must be a number.')
+    return errors
+
+
+def _validate_shoe(short_name: str, long_name: str) -> list[str]:
+    """Return validation error messages for shoe form fields."""
+    errors = []
+    if not short_name.strip():
+        errors.append('Short name is required.')
+    if not long_name.strip():
+        errors.append('Long name is required.')
+    return errors
+
 
 def get_db():
     db = getattr(g, '_database', None)
@@ -112,6 +167,7 @@ def change_workout(id):
     cur.execute('SELECT type FROM wo_type')
     wo_type_list = [val_wo_type] + [row[0] for row in cur]
 
+    errors = []
     if request.method == "POST":
         date = request.form['date']
         location = request.form['location']
@@ -126,18 +182,25 @@ def change_workout(id):
         repetition = request.form['repetition']
         shoes = request.form['shoes']
 
-        cur.execute('SELECT id FROM shoes WHERE shortName = ?', (shoes,))
-        shoe_id = cur.fetchone()[0]
+        errors = _validate_workout(date, distance, recovery, easy, threshold, interval, repetition)
+        if not errors:
+            cur.execute('SELECT id FROM shoes WHERE shortName = ?', (shoes,))
+            shoe_id = cur.fetchone()[0]
 
-        cur.execute('SELECT id FROM wo_type WHERE type = ?', (wo_type,))
-        wo_type_id = cur.fetchone()[0]
+            cur.execute('SELECT id FROM wo_type WHERE type = ?', (wo_type,))
+            wo_type_id = cur.fetchone()[0]
 
-        sql.change_workout(conn, cur, id, date, location, wo_type_id, objective, notes,
-                           distance, recovery, easy, threshold, interval, repetition, shoe_id)
+            sql.change_workout(conn, cur, id, date, location, wo_type_id, objective, notes,
+                               distance, recovery, easy, threshold, interval, repetition, shoe_id)
 
-        intro, thead, tbody, summary = sql.get_workouts(cur)
-        return render_template("ListInfo.html", title='Listing of Workouts',
-                               intro=intro, thead=thead, tbody=tbody, summary=summary)
+            intro, thead, tbody, summary = sql.get_workouts(cur)
+            return render_template("ListInfo.html", title='Listing of Workouts',
+                                   intro=intro, thead=thead, tbody=tbody, summary=summary)
+
+        val_date, val_location, val_wo_type = date, location, wo_type
+        val_objective, val_notes, val_distance = objective, notes, distance
+        val_recovery, val_easy, val_threshold = recovery, easy, threshold
+        val_interval, val_repetition, val_shoe = interval, repetition, shoes
 
     return render_template("ChangeWorkout.html",
                            val_date=val_date, val_location=val_location,
@@ -146,7 +209,7 @@ def change_workout(id):
                            val_distance=val_distance, val_recovery=val_recovery,
                            val_easy=val_easy, val_threshold=val_threshold,
                            val_interval=val_interval, val_repetition=val_repetition,
-                           val_shoe=val_shoe, shoe_list=shoe_list)
+                           val_shoe=val_shoe, shoe_list=shoe_list, errors=errors)
 
 
 @app.route('/ListAthletes', methods=["GET", "POST"])
@@ -182,6 +245,7 @@ def change_health(id):
     val_hr = health[7]
     val_notes = health[8]
 
+    errors = []
     if request.method == "POST":
         date = request.form['date']
         weight = request.form['weight']
@@ -192,17 +256,21 @@ def change_health(id):
         hr = request.form['HR']
         notes = request.form['notes']
 
-        sql.change_health(conn, cur, id, date, weight, waist, waist_bb, hips, chest, notes, hr)
+        errors = _validate_health(date, weight, waist, waist_bb, hips, chest, hr)
+        if not errors:
+            sql.change_health(conn, cur, id, date, weight, waist, waist_bb, hips, chest, notes, hr)
+            intro, thead, tbody, summary = sql.get_health_list(cur)
+            return render_template("ListInfo.html", title='Listing of Health',
+                                   intro='', thead=thead, tbody=tbody, summary=summary)
 
-        intro, thead, tbody, summary = sql.get_health_list(cur)
-        return render_template("ListInfo.html", title='Listing of Health',
-                               intro='', thead=thead, tbody=tbody, summary=summary)
+        val_date, val_weight, val_waist = date, weight, waist
+        val_waist_bb, val_hips, val_chest, val_hr, val_notes = waist_bb, hips, chest, hr, notes
 
     return render_template("AddHealth.html",
                            val_date=val_date, val_weight=val_weight,
                            val_waist=val_waist, val_waist_bb=val_waist_bb,
                            val_chest=val_chest, val_hips=val_hips,
-                           val_notes=val_notes, val_HR=val_hr)
+                           val_notes=val_notes, val_HR=val_hr, errors=errors)
 
 
 @app.route('/AddHealth', methods=["GET", "POST"])
@@ -210,6 +278,11 @@ def add_health():
     conn = get_db()
     cur = conn.cursor()
 
+    defaults = dict(val_date=datetime.date.today().strftime('%Y-%m-%d'),
+                    val_weight='0.0', val_waist='0.0', val_waist_bb='0.0',
+                    val_chest='0.0', val_hips='0.0', val_notes='notes...', val_HR=60)
+    errors = []
+
     if request.method == "POST":
         date = request.form['date']
         weight = request.form['weight']
@@ -219,16 +292,19 @@ def add_health():
         hips = request.form['hips']
         hr = request.form['HR']
         notes = request.form['notes']
-        sql.add_health(conn, cur, date, weight, waist, waist_bb, hips, chest, notes, hr)
 
-        intro, thead, tbody, summary = sql.get_health_list(cur)
-        return render_template("ListInfo.html", title='Listing of Health',
-                               intro='', thead=thead, tbody=tbody, summary=summary)
+        errors = _validate_health(date, weight, waist, waist_bb, hips, chest, hr)
+        if not errors:
+            sql.add_health(conn, cur, date, weight, waist, waist_bb, hips, chest, notes, hr)
+            intro, thead, tbody, summary = sql.get_health_list(cur)
+            return render_template("ListInfo.html", title='Listing of Health',
+                                   intro='', thead=thead, tbody=tbody, summary=summary)
 
-    return render_template("AddHealth.html",
-                           val_date=datetime.date.today().strftime('%Y-%m-%d'),
-                           val_weight='0.0', val_waist='0.0', val_waist_bb='0.0',
-                           val_chest='0.0', val_hips='0.0', val_notes='notes...', val_HR=60)
+        defaults = dict(val_date=date, val_weight=weight, val_waist=waist,
+                        val_waist_bb=waist_bb, val_chest=chest, val_hips=hips,
+                        val_notes=notes, val_HR=hr)
+
+    return render_template("AddHealth.html", errors=errors, **defaults)
 
 
 @app.route('/PlotWeight', methods=["GET", "POST"])
@@ -250,6 +326,12 @@ def add_workout():
     cur.execute('SELECT type FROM wo_type')
     wo_type_list = [row[0] for row in cur]
 
+    defaults = dict(val_date=datetime.date.today().strftime('%Y-%m-%d'),
+                    val_location='Location...', val_objective='Objective', val_notes='Notes...',
+                    val_distance='10.0', val_recovery='0:00:00', val_easy='0:00:00',
+                    val_threshold='0:00:00', val_interval='0:00:00', val_repetition='0:00:00')
+    errors = []
+
     if request.method == "POST":
         logger.debug('AddWorkout POST request')
         date = request.form['date']
@@ -265,29 +347,30 @@ def add_workout():
         repetition = request.form['repetition']
         shoes = request.form['shoes']
 
-        logger.debug('shoes=%s', shoes)
-        cur.execute('SELECT id FROM shoes WHERE shortName = ?', (shoes,))
-        shoe_id = cur.fetchone()[0]
+        errors = _validate_workout(date, distance, recovery, easy, threshold, interval, repetition)
+        if not errors:
+            logger.debug('shoes=%s', shoes)
+            cur.execute('SELECT id FROM shoes WHERE shortName = ?', (shoes,))
+            shoe_id = cur.fetchone()[0]
 
-        logger.debug('wo_type=%s', wo_type)
-        cur.execute('SELECT id FROM wo_type WHERE type = ?', (wo_type,))
-        wo_type_id = cur.fetchone()[0]
+            logger.debug('wo_type=%s', wo_type)
+            cur.execute('SELECT id FROM wo_type WHERE type = ?', (wo_type,))
+            wo_type_id = cur.fetchone()[0]
 
-        sql.add_workout(conn, cur, date, location, wo_type_id, objective, notes,
-                        distance, recovery, easy, threshold, interval, repetition, shoe_id)
+            sql.add_workout(conn, cur, date, location, wo_type_id, objective, notes,
+                            distance, recovery, easy, threshold, interval, repetition, shoe_id)
 
-        intro, thead, tbody, summary = sql.get_workouts(cur)
-        return render_template("ListInfo.html", title='Listing of Workouts',
-                               intro=intro, thead=thead, tbody=tbody, summary=summary)
+            intro, thead, tbody, summary = sql.get_workouts(cur)
+            return render_template("ListInfo.html", title='Listing of Workouts',
+                                   intro=intro, thead=thead, tbody=tbody, summary=summary)
 
-    return render_template("AddWorkout.html",
-                           val_date=datetime.date.today().strftime('%Y-%m-%d'),
-                           val_location='Location...', wo_type_list=wo_type_list,
-                           val_objective='Objective', val_notes='Notes...',
-                           val_distance='10.0', val_recovery='0:00:00',
-                           val_easy='0:00:00', val_threshold='0:00:00',
-                           val_interval='0:00:00', val_repetition='0:00:00',
-                           shoe_list=shoe_list)
+        defaults = dict(val_date=date, val_location=location, val_objective=objective,
+                        val_notes=notes, val_distance=distance, val_recovery=recovery,
+                        val_easy=easy, val_threshold=threshold, val_interval=interval,
+                        val_repetition=repetition)
+
+    return render_template("AddWorkout.html", wo_type_list=wo_type_list,
+                           shoe_list=shoe_list, errors=errors, **defaults)
 
 
 @app.route('/ListShoes', methods=["GET", "POST"])
@@ -323,15 +406,20 @@ def add_shoes():
     conn = get_db()
     cur = conn.cursor()
     intro, thead, tbody, summary = sql.get_shoes(cur)
+    val_short_name, val_long_name, errors = '', '', []
 
     if request.method == "POST":
-        short_name = request.form['shortName']
-        long_name = request.form['longName']
-        sql.add_shoes(conn, cur, short_name, long_name)
-        intro, thead, tbody, summary = sql.get_shoes(cur)
+        val_short_name = request.form['shortName']
+        val_long_name = request.form['longName']
+        errors = _validate_shoe(val_short_name, val_long_name)
+        if not errors:
+            sql.add_shoes(conn, cur, val_short_name, val_long_name)
+            intro, thead, tbody, summary = sql.get_shoes(cur)
+            val_short_name, val_long_name = '', ''
 
     return render_template("ShoeInput.html", intro=intro, thead=thead, tbody=tbody,
-                           val_shortName='', val_longName='')
+                           val_shortName=val_short_name, val_longName=val_long_name,
+                           errors=errors)
 
 
 @app.route('/Compare', methods=["GET", "POST"])

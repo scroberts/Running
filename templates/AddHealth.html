@@ -1,73 +1,77 @@
 <!DOCTYPE html>
 <html lang="en">
 
-  {% include 'header.html' %}    
-  
+  {% include 'header.html' %}
+
   <body>
       <form method="POST" action="" accept-charset="UTF-8">
-    
-        <nav class="navbar navbar-inverse navbar-fixed-top">
-          <div class="container"> 
-            {% include 'navbar.html' %}
-          </div>
-        </nav>
-  
+
+        <div class="container">
+          {% include 'navbar.html' %}
+        </div>
+
         <div class="container">
             <div class="starter-left">
-                <form>
-                                
-                    <div class="input-group">
-                        <span class="input-group-addon">Date </span>
-                        <input type="date" name = "date" class="form-control" id="formGroupExampleInput" value= "{{ val_date }}">
+
+                    {% if errors %}
+                    <div class="alert alert-danger">
+                        <ul class="mb-0">
+                        {% for error in errors %}
+                            <li>{{ error }}</li>
+                        {% endfor %}
+                        </ul>
                     </div>
-              
+                    {% endif %}
+
                     <div class="input-group">
-                        <span class="input-group-addon">Weight </span>
-                        <input type="text" name = "weight" class="form-control" placeholder = "Weight" value = "{{ val_weight }}">
+                        <span class="input-group-addon">Date</span>
+                        <input type="date" name="date" class="form-control" value="{{ val_date }}" required>
                     </div>
-                    
+
                     <div class="input-group">
-                        <span class="input-group-addon">Chest </span>
-                        <input type="text" name = "chest" class="form-control" placeholder = "Chest" value = "{{ val_chest }}">
+                        <span class="input-group-addon">Weight</span>
+                        <input type="number" name="weight" class="form-control" placeholder="Weight" value="{{ val_weight }}" step="0.1" min="0" required>
                     </div>
-                    
+
                     <div class="input-group">
-                        <span class="input-group-addon">Waist at BB </span>
-                        <input type="text" name = "waist_bb" class="form-control" placeholder = "Waist at BB" value = "{{ val_waist_bb }}">
+                        <span class="input-group-addon">Chest</span>
+                        <input type="number" name="chest" class="form-control" placeholder="Chest" value="{{ val_chest }}" step="0.1" min="0" required>
                     </div>
-                    
+
                     <div class="input-group">
-                        <span class="input-group-addon">Waist </span>
-                        <input type="text" name = "waist" class="form-control" placeholder = "Waist" value = "{{ val_waist }}">
+                        <span class="input-group-addon">Waist at BB</span>
+                        <input type="number" name="waist_bb" class="form-control" placeholder="Waist at BB" value="{{ val_waist_bb }}" step="0.1" min="0" required>
                     </div>
-                    
+
                     <div class="input-group">
-                        <span class="input-group-addon">Hips </span>
-                        <input type="text" name = "hips" class="form-control" placeholder = "hips" value = "{{ val_hips }}">
+                        <span class="input-group-addon">Waist</span>
+                        <input type="number" name="waist" class="form-control" placeholder="Waist" value="{{ val_waist }}" step="0.1" min="0" required>
                     </div>
-                    
+
                     <div class="input-group">
-                        <span class="input-group-addon">Heart Rate </span>
-                        <input type="number" name = "HR" class="form-control" placeholder = "HR" value = "{{ val_HR }}">
+                        <span class="input-group-addon">Hips</span>
+                        <input type="number" name="hips" class="form-control" placeholder="Hips" value="{{ val_hips }}" step="0.1" min="0" required>
                     </div>
-                    
+
                     <div class="input-group">
-                        <div class="form-group">
-                            <span class="input-group-addon">Notes About Health </span>
-                            <textarea type="text" name = "notes" class="form-control" rows="3" style="min-width: 100%" placeholder = "notes...">{{ val_notes }}</textarea>
-                        </div>
+                        <span class="input-group-addon">Heart Rate</span>
+                        <input type="number" name="HR" class="form-control" placeholder="HR" value="{{ val_HR }}" min="1" required>
                     </div>
-                                    
-                    <p class="bottom-three">       
+
+                    <div class="input-group">
+                        <span class="input-group-addon">Notes About Health</span>
+                        <textarea name="notes" class="form-control" rows="3" placeholder="notes...">{{ val_notes }}</textarea>
+                    </div>
+
+                    <p class="bottom-three">
                         <div class="container">
                           <input type="submit" class="btn btn-info" value="Submit">
-                        </div>   
-                    </p>                     
-                    
-                </form>
+                        </div>
+                    </p>
+
             </div><!-- /starter-template -->
         </div><!-- /.container -->
+
     {% include 'footer.html' %}
 </body>
 </html>
-    

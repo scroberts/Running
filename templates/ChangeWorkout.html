@@ -12,9 +12,19 @@
         <div class="container">
             <div class="starter-left">
 
+                    {% if errors %}
+                    <div class="alert alert-danger">
+                        <ul class="mb-0">
+                        {% for error in errors %}
+                            <li>{{ error }}</li>
+                        {% endfor %}
+                        </ul>
+                    </div>
+                    {% endif %}
+
                     <div class="input-group">
                         <span class="input-group-addon">Date</span>
-                        <input type="date" name="date" class="form-control" id="formGroupExampleInput" value="{{ val_date }}">
+                        <input type="date" name="date" class="form-control" value="{{ val_date }}" required>
                     </div>
 
                     <div class="input-group">
@@ -45,32 +55,32 @@
 
                     <div class="input-group">
                         <span class="input-group-addon">Distance (km)</span>
-                        <input type="text" name="distance" class="form-control" placeholder="distance" value="{{ val_distance }}">
+                        <input type="number" name="distance" class="form-control" placeholder="distance" value="{{ val_distance }}" step="0.01" min="0.01" required>
                     </div>
 
                     <div class="input-group">
                         <span class="input-group-addon">Time at Recovery Pace (h:mm:ss)</span>
-                        <input type="text" name="recovery" class="form-control" placeholder="Time @ Recovery" value="{{ val_recovery }}">
+                        <input type="text" name="recovery" class="form-control" placeholder="0:00:00" value="{{ val_recovery }}" pattern="\d+:[0-5]\d:[0-5]\d" required>
                     </div>
 
                     <div class="input-group">
                         <span class="input-group-addon">Time at Easy Pace (h:mm:ss)</span>
-                        <input type="text" name="easy" class="form-control" placeholder="Time @ Easy" value="{{ val_easy }}">
+                        <input type="text" name="easy" class="form-control" placeholder="0:00:00" value="{{ val_easy }}" pattern="\d+:[0-5]\d:[0-5]\d" required>
                     </div>
 
                     <div class="input-group">
                         <span class="input-group-addon">Time at Threshold Pace (h:mm:ss)</span>
-                        <input type="text" name="threshold" class="form-control" placeholder="Time @ Threshold" value="{{ val_threshold }}">
+                        <input type="text" name="threshold" class="form-control" placeholder="0:00:00" value="{{ val_threshold }}" pattern="\d+:[0-5]\d:[0-5]\d" required>
                     </div>
 
                     <div class="input-group">
                         <span class="input-group-addon">Time at Interval Pace (h:mm:ss)</span>
-                        <input type="text" name="interval" class="form-control" placeholder="Time @ Interval" value="{{ val_interval }}">
+                        <input type="text" name="interval" class="form-control" placeholder="0:00:00" value="{{ val_interval }}" pattern="\d+:[0-5]\d:[0-5]\d" required>
                     </div>
 
                     <div class="input-group">
                         <span class="input-group-addon">Time at Repetition Pace (h:mm:ss)</span>
-                        <input type="text" name="repetition" class="form-control" placeholder="Time @ Repetition" value="{{ val_repetition }}">
+                        <input type="text" name="repetition" class="form-control" placeholder="0:00:00" value="{{ val_repetition }}" pattern="\d+:[0-5]\d:[0-5]\d" required>
                     </div>
 
                     <p class="bottom-one">
