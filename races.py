@@ -551,5 +551,4 @@ def add_workout_from_garmin(activity_id):
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
-    # TODO: set debug=False before deploying to production
-    app.run(debug=True, host='0.0.0.0', port=8080, passthrough_errors=True)
+    app.run(debug=False, host='0.0.0.0', port=8080)
