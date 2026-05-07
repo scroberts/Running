@@ -94,17 +94,18 @@ def format_lap_notes(laps: list[dict], start_time: str = '') -> str:
     if start_time:
         lines.append(f'Started at {start_time}.')
         lines.append('')
-    lines.append('Rep / Dist / Pace / AHR / RPE / Notes')
+    lines.append('Rep / Time / Dist / Pace / AHR / RPE / Notes')
     total_dist_m = 0.0
     total_secs = 0.0
     for i, lap in enumerate(laps, start=1):
+        lap_secs = _lap_secs(lap)
         pace = _pace_str(lap.get('averageSpeed', 0))
         ahr = int(lap.get('averageHR') or 0) or ''
         dist_m = lap.get('distance') or 0
         dist_km = dist_m / 1000.0
         total_dist_m += dist_m
-        total_secs += _lap_secs(lap)
-        lines.append(f'{i} / {dist_km:.2f} km / {pace} / {ahr} /  ')
+        total_secs += lap_secs
+        lines.append(f'{i} / {_duration_str(lap_secs)} / {dist_km:.2f} km / {pace} / {ahr} /  ')
     total_dist_km = total_dist_m / 1000.0
     lines.append('')
     lines.append(

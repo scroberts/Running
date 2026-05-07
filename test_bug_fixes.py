@@ -1475,7 +1475,7 @@ class TestFormatLapNotes(unittest.TestCase):
     def test_header_line(self):
         import garmin as g
         notes = g.format_lap_notes(self._LAPS)
-        self.assertIn('Rep / Dist / Pace / AHR / RPE / Notes', notes)
+        self.assertIn('Rep / Time / Dist / Pace / AHR / RPE / Notes', notes)
 
     def test_correct_row_count(self):
         import garmin as g
@@ -1490,7 +1490,7 @@ class TestFormatLapNotes(unittest.TestCase):
         lap_lines = [l for l in notes.splitlines() if l and l[0].isdigit()]
         for line in lap_lines:
             parts = line.split(' / ')
-            self.assertEqual(parts[4].strip(), '', f'RPE column should be blank: {line}')
+            self.assertEqual(parts[5].strip(), '', f'RPE column should be blank: {line}')
 
     def test_total_line_present(self):
         import garmin as g
@@ -1625,7 +1625,7 @@ class TestMapToForm(unittest.TestCase):
     def test_notes_contains_lap_data(self):
         import garmin as g
         form = g.map_to_form(self._ACTIVITY, self._LAPS)
-        self.assertIn('Rep / Dist / Pace / AHR / RPE / Notes', form['val_notes'])
+        self.assertIn('Rep / Time / Dist / Pace / AHR / RPE / Notes', form['val_notes'])
 
     def test_time_zones_default_to_zero(self):
         import garmin as g
@@ -1690,7 +1690,7 @@ class TestGarminRoutes(unittest.TestCase):
     def test_add_workout_from_garmin_returns_200(self):
         fake_form = {
             'val_date': '2024-06-01', 'val_location': 'Track',
-            'val_objective': '', 'val_notes': 'Rep / Dist / Pace / AHR / RPE / Notes\n1 / 1.00 km / 4:11 / 135 /  \n\nTotal distance was 1.00 km in 4:11 minutes',
+            'val_objective': '', 'val_notes': 'Rep / Time / Dist / Pace / AHR / RPE / Notes\n1 / 0:00 / 1.00 km / 4:11 / 135 /  \n\nTotal distance was 1.00 km in 0:00 minutes',
             'val_distance': '10.00', 'val_recovery': '0:00:00',
             'val_easy': '0:00:00', 'val_threshold': '0:00:00',
             'val_interval': '0:00:00', 'val_repetition': '0:00:00',

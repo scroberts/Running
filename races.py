@@ -477,10 +477,13 @@ def garmin_sync():
             dist_km = (act.get('distance') or 0) / 1000.0
             total_secs = int(act.get('duration') or 0)
             act_id = act.get('activityId', '')
-            date_str = (act.get('startTimeLocal') or '')[:10]
+            start_local = act.get('startTimeLocal') or ''
+            date_str = start_local[:10]
+            start_time = start_local[11:16] if len(start_local) >= 16 else ''
             name = act.get('activityName') or ''
             params = urlencode({
                 'date': date_str,
+                'start_time': start_time,
                 'dist': f'{dist_km:.2f}',
                 'name': name,
                 'type_key': type_key,
@@ -525,7 +528,7 @@ def add_workout_from_garmin(activity_id):
         # Reconstruct activity summary from URL params (passed by GarminSync page)
         # to avoid a second Garmin API call with a different response structure.
         activity = {
-            'startTimeLocal': request.args.get('date', ''),
+            'startTimeLocal': request.args.get('date', '') + ' ' + request.args.get('start_time', ''),
             'distance': float(request.args.get('dist', 0)) * 1000,
             'duration': float(request.args.get('duration', 0)),
             'activityName': request.args.get('name', ''),
