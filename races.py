@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from flask import Flask, render_template, request, g, redirect, url_for
+from flask import Flask, render_template, request, g, redirect, url_for, Response
 from urllib.parse import urlencode
 import sqlite3
 import re
@@ -314,12 +314,25 @@ def add_health():
     return render_template("AddHealth.html", errors=errors, **defaults)
 
 
-@app.route('/PlotWeight', methods=["GET", "POST"])
+@app.route('/PlotWeight', methods=["GET"])
 def plot_weight():
-    conn = get_db()
-    cur = conn.cursor()
-    sql.get_weight_report(cur)
-    return render_template("PlotWeight.html")
+    selected_range = request.args.get('range', '365')
+    goal = request.args.get('goal', '')
+    return render_template("PlotWeight.html", selected_range=selected_range, goal=goal)
+
+
+@app.route('/WeightChart', methods=["GET"])
+def weight_chart():
+    days_str = request.args.get('range', '')
+    days = int(days_str) if days_str.isdigit() else None
+    goal_str = request.args.get('goal', '').strip()
+    try:
+        goal = float(goal_str) if goal_str else None
+    except ValueError:
+        goal = None
+    cur = get_db().cursor()
+    png = sql.get_weight_chart(cur, days=days, goal_weight=goal)
+    return Response(png, mimetype='image/png')
 
 
 @app.route('/AddWorkout', methods=["GET", "POST"])

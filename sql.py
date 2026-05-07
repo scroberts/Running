@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import io
 import re
 import csv
 import shlex
@@ -274,29 +275,96 @@ def get_health_list(cur) -> tuple[list, list, list, str]:
     return intro, thead, tbody, summary
 
 
-def get_weight_report(cur) -> None:
-    """Generate and save a weight trend plot to static/weight.png."""
-    cur.execute('''
-        SELECT h1.date, AVG(h2.weight)
-        FROM Health h1
-        JOIN Health h2
-          ON h2.date BETWEEN date(h1.date, '-3 days') AND date(h1.date, '+3 days')
-         AND h2.weight > 0
-        WHERE h1.weight > 0
-        GROUP BY h1.date
-        ORDER BY h1.date DESC
-        LIMIT 200
-    ''')
-    rows = cur.fetchall()
-    datelist = [datetime.strptime(r[0], '%Y-%m-%d') for r in rows]
-    weightlist = [r[1] for r in rows]
+def get_weight_chart(cur, days: int | None = None, goal_weight: float | None = None) -> bytes:
+    """Return a weight trend chart as PNG bytes.
 
-    plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
-    plt.gca().xaxis.set_major_locator(ticker.MultipleLocator(90))
-    plt.plot(datelist, weightlist)
-    plt.gcf().autofmt_xdate()
-    plt.savefig('static/weight.png')
-    plt.clf()
+    Shows raw daily weigh-ins as a scatter plot, a 7-day rolling average line,
+    workout days as tick marks along the bottom, and an optional goal weight line.
+    """
+    date_param = f'-{days} days' if days else None
+
+    if date_param:
+        cur.execute(
+            'SELECT date, weight FROM Health WHERE weight > 0 AND date != "" AND date >= date(?, ?) ORDER BY date',
+            ('now', date_param),
+        )
+    else:
+        cur.execute('SELECT date, weight FROM Health WHERE weight > 0 AND date != "" ORDER BY date')
+    raw_rows = cur.fetchall()
+
+    if date_param:
+        cur.execute(
+            '''SELECT h1.date, AVG(h2.weight)
+               FROM Health h1
+               JOIN Health h2
+                 ON h2.date BETWEEN date(h1.date, '-3 days') AND date(h1.date, '+3 days')
+                AND h2.weight > 0
+                WHERE h1.weight > 0 AND h1.date != "" AND h1.date >= date(?, ?)
+               GROUP BY h1.date ORDER BY h1.date''',
+            ('now', date_param),
+        )
+    else:
+        cur.execute(
+            '''SELECT h1.date, AVG(h2.weight)
+               FROM Health h1
+               JOIN Health h2
+                 ON h2.date BETWEEN date(h1.date, '-3 days') AND date(h1.date, '+3 days')
+                AND h2.weight > 0
+               WHERE h1.weight > 0 AND h1.date != ""
+               GROUP BY h1.date ORDER BY h1.date'''
+        )
+    avg_rows = cur.fetchall()
+
+    if date_param:
+        cur.execute(
+            'SELECT DISTINCT date FROM Log WHERE date >= date(?, ?) ORDER BY date',
+            ('now', date_param),
+        )
+    else:
+        cur.execute('SELECT DISTINCT date FROM Log ORDER BY date')
+    wo_dates = [datetime.strptime(r[0], '%Y-%m-%d') for r in cur.fetchall()]
+
+    raw_dates = [datetime.strptime(r[0], '%Y-%m-%d') for r in raw_rows]
+    raw_weights = [r[1] for r in raw_rows]
+    avg_dates = [datetime.strptime(r[0], '%Y-%m-%d') for r in avg_rows]
+    avg_weights = [r[1] for r in avg_rows]
+
+    fig, ax = plt.subplots(figsize=(13, 5))
+
+    if raw_weights:
+        ax.scatter(raw_dates, raw_weights, s=6, alpha=0.25, color='steelblue', zorder=2)
+    if avg_weights:
+        ax.plot(avg_dates, avg_weights, linewidth=2, color='steelblue', label='7-day average', zorder=3)
+    if goal_weight is not None:
+        ax.axhline(y=goal_weight, linestyle='--', color='tomato', linewidth=1.5,
+                   label=f'Goal: {goal_weight:.1f} kg', zorder=4)
+    if wo_dates:
+        ax.vlines(wo_dates, 0, 0.04, transform=ax.get_xaxis_transform(),
+                  color='green', alpha=0.35, linewidth=0.8, label='Workout')
+
+    if raw_weights:
+        lo = min(raw_weights) - 1.5
+        hi = max(raw_weights) + 1.5
+        if goal_weight is not None:
+            lo = min(lo, goal_weight - 1.5)
+            hi = max(hi, goal_weight + 1.5)
+        ax.set_ylim(lo, hi)
+
+    ax.xaxis.set_major_formatter(mdates.AutoDateFormatter(mdates.AutoDateLocator()))
+    ax.xaxis.set_major_locator(mdates.AutoDateLocator())
+    fig.autofmt_xdate()
+
+    ax.set_ylabel('Weight (kg)')
+    ax.set_title('Weight')
+    ax.grid(True, alpha=0.25)
+    if avg_weights or goal_weight is not None:
+        ax.legend(loc='upper right', fontsize=9)
+
+    buf = io.BytesIO()
+    fig.savefig(buf, format='png', dpi=110, bbox_inches='tight')
+    plt.close(fig)
+    buf.seek(0)
+    return buf.read()
 
 
 def retire_shoe(conn, cur, shoe_id) -> None:

@@ -1,23 +1,40 @@
 <!DOCTYPE html>
 <html lang="en">
 
-  {% include 'header.html' %}  
-  
+  {% include 'header.html' %}
+
   <body>
-  
-      <form method="POST" action="" accept-charset="UTF-8">
-    
-        <nav class="navbar navbar-inverse navbar-fixed-top">
-          <div class="container">
-            {% include 'navbar.html' %}
-          </div>
-        </nav>
-        
-        
-        <h2>Plot of Weight</h2>
-        <img src="{{ url_for('static', filename = 'weight.png') }}" class="img-fluid" alt = "plot of weight" >  
-        
-        {% include 'footer.html' %}
-</body>
+    <div class="container">
+      <nav class="navbar navbar-inverse navbar-fixed-top">
+        {% include 'navbar.html' %}
+      </nav>
+
+      <h2>Weight</h2>
+
+      <form method="GET" action="/PlotWeight" class="form-inline" style="margin-bottom:16px;">
+        <div class="form-group" style="margin-right:12px;">
+          <label for="range" style="margin-right:6px;">Range</label>
+          <select name="range" id="range" class="form-control">
+            <option value="90"  {% if selected_range == '90'  %}selected{% endif %}>Last 90 days</option>
+            <option value="180" {% if selected_range == '180' %}selected{% endif %}>Last 6 months</option>
+            <option value="365" {% if selected_range == '365' %}selected{% endif %}>Last year</option>
+            <option value=""    {% if selected_range == ''    %}selected{% endif %}>All time</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin-right:12px;">
+          <label for="goal" style="margin-right:6px;">Goal weight (kg)</label>
+          <input type="number" step="0.1" name="goal" id="goal" class="form-control"
+                 style="width:90px;" value="{{ goal }}" placeholder="optional">
+        </div>
+        <button type="submit" class="btn btn-default">Update</button>
+      </form>
+
+      <img src="/WeightChart?range={{ selected_range }}&goal={{ goal }}"
+           class="img-fluid" alt="Weight chart"
+           style="max-width:100%;">
+
+    </div>
+
+    {% include 'footer.html' %}
+  </body>
 </html>
-    
