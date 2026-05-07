@@ -84,13 +84,17 @@ def _lap_secs(lap: dict) -> float:
             or lap.get('movingDuration') or 0)
 
 
-def format_lap_notes(laps: list[dict]) -> str:
-    """Build the Rep / Pace / AHR / RPE / Dist notes block.
+def format_lap_notes(laps: list[dict], start_time: str = '') -> str:
+    """Build the Rep / Dist / Pace / AHR / RPE / Notes block.
 
     Totals are computed from the laps so the summary is always consistent
     with the individual rows regardless of the activity-level summary fields.
     """
-    lines = ['Rep / Dist / Pace / AHR / RPE']
+    lines = []
+    if start_time:
+        lines.append(f'Started at {start_time}.')
+        lines.append('')
+    lines.append('Rep / Dist / Pace / AHR / RPE / Notes')
     total_dist_m = 0.0
     total_secs = 0.0
     for i, lap in enumerate(laps, start=1):
@@ -102,6 +106,7 @@ def format_lap_notes(laps: list[dict]) -> str:
         total_secs += _lap_secs(lap)
         lines.append(f'{i} / {dist_km:.2f} km / {pace} / {ahr} /  ')
     total_dist_km = total_dist_m / 1000.0
+    lines.append('')
     lines.append(
         f'Total distance was {total_dist_km:.2f} km in {_duration_str(total_secs)} minutes'
     )
@@ -131,7 +136,9 @@ def find_unlogged(cur, activities: list[dict]) -> list[dict]:
 
 def map_to_form(activity: dict, laps: list[dict]) -> dict:
     """Return a pre-filled AddWorkout form dict from a Garmin activity + its laps."""
-    raw_date = (activity.get('startTimeLocal') or '')[:10]
+    start_local = activity.get('startTimeLocal') or ''
+    raw_date = start_local[:10]
+    start_time = start_local[11:16] if len(start_local) >= 16 else ''
     dist_m = activity.get('distance') or 0
     dist_km = dist_m / 1000.0
     total_secs = activity.get('duration') or 0
@@ -139,7 +146,7 @@ def map_to_form(activity: dict, laps: list[dict]) -> dict:
     type_key = (activity.get('activityType') or {}).get('typeKey', '')
     wo_type = _ACTIVITY_TYPE_MAP.get(type_key, 'Run')
 
-    notes = format_lap_notes(laps) if laps else ''
+    notes = format_lap_notes(laps, start_time) if laps else ''
 
     return dict(
         val_date=raw_date or date.today().strftime('%Y-%m-%d'),

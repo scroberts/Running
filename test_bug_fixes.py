@@ -1475,19 +1475,20 @@ class TestFormatLapNotes(unittest.TestCase):
     def test_header_line(self):
         import garmin as g
         notes = g.format_lap_notes(self._LAPS)
-        self.assertTrue(notes.startswith('Rep / Dist / Pace / AHR / RPE'))
+        self.assertIn('Rep / Dist / Pace / AHR / RPE / Notes', notes)
 
     def test_correct_row_count(self):
         import garmin as g
         notes = g.format_lap_notes(self._LAPS)
         lines = notes.strip().splitlines()
-        # header + 3 lap rows + total line = 5
-        self.assertEqual(len(lines), 5)
+        # header + 3 lap rows + blank line + total line = 6
+        self.assertEqual(len(lines), 6)
 
     def test_rpe_column_is_blank(self):
         import garmin as g
         notes = g.format_lap_notes(self._LAPS)
-        for line in notes.splitlines()[1:-1]:  # skip header and total
+        lap_lines = [l for l in notes.splitlines() if l and l[0].isdigit()]
+        for line in lap_lines:
             parts = line.split(' / ')
             self.assertEqual(parts[4].strip(), '', f'RPE column should be blank: {line}')
 
@@ -1506,6 +1507,23 @@ class TestFormatLapNotes(unittest.TestCase):
         laps = [{'averageSpeed': 0, 'averageHR': 140, 'distance': 1000.0}]
         notes = g.format_lap_notes(laps)
         self.assertIn('--:--', notes)
+
+    def test_started_at_line_when_time_provided(self):
+        import garmin as g
+        notes = g.format_lap_notes(self._LAPS, start_time='07:30')
+        self.assertTrue(notes.startswith('Started at 07:30.'))
+
+    def test_no_started_at_line_when_no_time(self):
+        import garmin as g
+        notes = g.format_lap_notes(self._LAPS)
+        self.assertFalse(notes.startswith('Started at'))
+
+    def test_blank_line_before_total(self):
+        import garmin as g
+        notes = g.format_lap_notes(self._LAPS)
+        lines = notes.splitlines()
+        total_idx = next(i for i, l in enumerate(lines) if l.startswith('Total'))
+        self.assertEqual(lines[total_idx - 1], '')
 
 
 # ---------------------------------------------------------------------------
@@ -1607,7 +1625,7 @@ class TestMapToForm(unittest.TestCase):
     def test_notes_contains_lap_data(self):
         import garmin as g
         form = g.map_to_form(self._ACTIVITY, self._LAPS)
-        self.assertIn('Rep / Dist / Pace / AHR / RPE', form['val_notes'])
+        self.assertIn('Rep / Dist / Pace / AHR / RPE / Notes', form['val_notes'])
 
     def test_time_zones_default_to_zero(self):
         import garmin as g
@@ -1672,7 +1690,7 @@ class TestGarminRoutes(unittest.TestCase):
     def test_add_workout_from_garmin_returns_200(self):
         fake_form = {
             'val_date': '2024-06-01', 'val_location': 'Track',
-            'val_objective': '', 'val_notes': 'Rep / Dist / Pace / AHR / RPE\n1 / 1.00 km / 4:11 / 135 /  \nTotal distance was 1.00 km in 4:11 minutes',
+            'val_objective': '', 'val_notes': 'Rep / Dist / Pace / AHR / RPE / Notes\n1 / 1.00 km / 4:11 / 135 /  \n\nTotal distance was 1.00 km in 4:11 minutes',
             'val_distance': '10.00', 'val_recovery': '0:00:00',
             'val_easy': '0:00:00', 'val_threshold': '0:00:00',
             'val_interval': '0:00:00', 'val_repetition': '0:00:00',
