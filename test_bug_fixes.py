@@ -1002,9 +1002,9 @@ class TestValidateWorkout(unittest.TestCase):
         errors = self._call(date='15-01-2024')
         self.assertTrue(any('Date' in e for e in errors))
 
-    def test_zero_distance_reported(self):
+    def test_zero_distance_is_valid(self):
         errors = self._call(distance='0.0')
-        self.assertTrue(any('Distance' in e for e in errors))
+        self.assertFalse(any('Distance' in e for e in errors))
 
     def test_negative_distance_reported(self):
         errors = self._call(distance='-5')

@@ -27,8 +27,8 @@ def _validate_workout(date: str, distance: str, recovery: str, easy: str,
     except ValueError:
         errors.append('Date must be in YYYY-MM-DD format.')
     try:
-        if float(distance) <= 0:
-            errors.append('Distance must be a positive number.')
+        if float(distance) < 0:
+            errors.append('Distance must be a non-negative number.')
     except (ValueError, TypeError):
         errors.append('Distance must be a number.')
     for label, val in [('Recovery', recovery), ('Easy', easy), ('Threshold', threshold),
