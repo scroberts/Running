@@ -142,7 +142,7 @@ def map_to_form(activity: dict, laps: list[dict]) -> dict:
     start_time = start_local[11:16] if len(start_local) >= 16 else ''
     dist_m = activity.get('distance') or 0
     dist_km = dist_m / 1000.0
-    total_secs = activity.get('duration') or 0
+    total_secs = activity.get('movingDuration') or activity.get('duration') or 0
 
     type_key = (activity.get('activityType') or {}).get('typeKey', '')
     wo_type = _ACTIVITY_TYPE_MAP.get(type_key, 'Run')

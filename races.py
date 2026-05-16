@@ -488,7 +488,7 @@ def garmin_sync():
         for act in unlogged:
             type_key = (act.get('activityType') or {}).get('typeKey', '')
             dist_km = (act.get('distance') or 0) / 1000.0
-            total_secs = int(act.get('duration') or 0)
+            total_secs = int(act.get('movingDuration') or act.get('duration') or 0)
             act_id = act.get('activityId', '')
             start_local = act.get('startTimeLocal') or ''
             date_str = start_local[:10]
