@@ -84,11 +84,12 @@ def _lap_secs(lap: dict) -> float:
             or lap.get('duration') or 0)
 
 
-def format_lap_notes(laps: list[dict], start_time: str = '') -> str:
+def format_lap_notes(laps: list[dict], start_time: str = '',
+                     activity_moving_secs: float = 0) -> str:
     """Build the Rep / Dist / Pace / AHR / RPE / Notes block.
 
-    Totals are computed from the laps so the summary is always consistent
-    with the individual rows regardless of the activity-level summary fields.
+    activity_moving_secs: if provided, used for the summary total instead of
+    summing lap durations (Garmin lapDTOs may not expose movingDuration per lap).
     """
     lines = []
     if start_time:
@@ -107,9 +108,10 @@ def format_lap_notes(laps: list[dict], start_time: str = '') -> str:
         total_secs += lap_secs
         lines.append(f'{i} / {_duration_str(lap_secs)} / {dist_km:.2f} km / {pace} / {ahr} /  ')
     total_dist_km = total_dist_m / 1000.0
+    summary_secs = activity_moving_secs or total_secs
     lines.append('')
     lines.append(
-        f'Total distance was {total_dist_km:.2f} km in {_duration_str(total_secs)} minutes'
+        f'Total distance was {total_dist_km:.2f} km in {_duration_str(summary_secs)} minutes'
     )
     return '\n'.join(lines)
 
@@ -153,7 +155,7 @@ def map_to_form(activity: dict, laps: list[dict]) -> dict:
     type_key = (activity.get('activityType') or {}).get('typeKey', '')
     wo_type = _ACTIVITY_TYPE_MAP.get(type_key, type_key or 'Run')
 
-    notes = format_lap_notes(laps, start_time) if laps else ''
+    notes = format_lap_notes(laps, start_time, activity_moving_secs=total_secs) if laps else ''
 
     return dict(
         val_date=raw_date or date.today().strftime('%Y-%m-%d'),
