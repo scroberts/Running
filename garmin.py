@@ -115,7 +115,7 @@ def format_lap_notes(laps: list[dict], start_time: str = '') -> str:
 
 
 def find_unlogged(cur, activities: list[dict]) -> list[dict]:
-    """Return activities that have no matching Log entry (same date, distance ±10%)."""
+    """Return activities that have no matching Log entry (same date, distance ±0.01 km)."""
     cur.execute('SELECT date, dist FROM Log')
     logged = cur.fetchall()
 
@@ -128,7 +128,7 @@ def find_unlogged(cur, activities: list[dict]) -> list[dict]:
         if dist_km > 0:
             already_logged = any(
                 log_date == raw_date and log_dist
-                and abs(log_dist - dist_km) / dist_km <= 0.10
+                and abs(log_dist - dist_km) <= 0.01
                 for log_date, log_dist in logged
             )
         else:

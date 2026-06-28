@@ -1558,21 +1558,21 @@ class TestFindUnlogged(unittest.TestCase):
         self.assertIn(2, ids)
         conn.close()
 
-    def test_within_10_percent_excluded(self):
+    def test_within_001km_excluded(self):
         import garmin as g
         conn, cur = make_db()
-        # Log 9.5 km; Garmin 10.0 km — within 10%
-        add_wo(conn, cur, date='2024-01-15', distance='9.5')
+        # Log 10.005 km; Garmin 10.0 km — within 0.01 km tolerance
+        add_wo(conn, cur, date='2024-01-15', distance='10.005')
         result = g.find_unlogged(cur, self._ACTIVITIES)
         ids = [a['activityId'] for a in result]
         self.assertNotIn(1, ids)
         conn.close()
 
-    def test_outside_10_percent_included(self):
+    def test_outside_001km_included(self):
         import garmin as g
         conn, cur = make_db()
-        # Log 5.0 km; Garmin 10.0 km — outside 10%
-        add_wo(conn, cur, date='2024-01-15', distance='5.0')
+        # Log 9.5 km; Garmin 10.0 km — outside 0.01 km, so still unlogged
+        add_wo(conn, cur, date='2024-01-15', distance='9.5')
         result = g.find_unlogged(cur, self._ACTIVITIES)
         ids = [a['activityId'] for a in result]
         self.assertIn(1, ids)
