@@ -32,7 +32,7 @@ Garmin OAuth tokens are cached in `~/.garth/` — pre-authenticate locally to av
 
 ## Garmin sync notes
 - `get_activities_by_date` and `get_activity_details` have different response structures — the route passes summary data as URL params to avoid calling `get_activity_details`
-- Lap duration field is `elapsedDuration` (not `duration`) — `_lap_secs()` in garmin.py handles this
+- Lap times use `movingDuration` (falling back to `elapsedDuration` then `duration`) — `_lap_secs()` in garmin.py handles this; both per-lap times and the summary total use moving time
 - Garmin's Cloudflare blocks cloud datacenter IPs — sync only works from a home IP
 
 ## Weight chart

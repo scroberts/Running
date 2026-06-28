@@ -79,9 +79,9 @@ def _duration_str(seconds: float) -> str:
 
 
 def _lap_secs(lap: dict) -> float:
-    """Return lap duration in seconds, trying the field names Garmin uses."""
-    return (lap.get('elapsedDuration') or lap.get('duration')
-            or lap.get('movingDuration') or 0)
+    """Return lap moving duration in seconds, falling back to elapsed if unavailable."""
+    return (lap.get('movingDuration') or lap.get('elapsedDuration')
+            or lap.get('duration') or 0)
 
 
 def format_lap_notes(laps: list[dict], start_time: str = '') -> str:
