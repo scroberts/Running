@@ -111,7 +111,7 @@ def format_lap_notes(laps: list[dict], start_time: str = '',
     summary_secs = activity_moving_secs or total_secs
     lines.append('')
     lines.append(
-        f'Total distance was {total_dist_km:.2f} km in {_duration_str(summary_secs)} minutes'
+        f'Total distance was {total_dist_km:.2f} km in {timedelta(seconds=round(summary_secs))}'
     )
     return '\n'.join(lines)
 
