@@ -106,7 +106,7 @@ def format_lap_notes(laps: list[dict], start_time: str = '',
         dist_km = dist_m / 1000.0
         total_dist_m += dist_m
         total_secs += lap_secs
-        lines.append(f'{i} / {timedelta(seconds=round(lap_secs))} / {dist_km:.2f} km / {pace} / {ahr} /  ')
+        lines.append(f'{i} / {_duration_str(lap_secs)} / {dist_km:.2f} km / {pace} / {ahr} /  ')
     total_dist_km = total_dist_m / 1000.0
     summary_secs = activity_moving_secs or total_secs
     lines.append('')
