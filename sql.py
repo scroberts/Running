@@ -44,7 +44,9 @@ def parse_datestr(date_str: str) -> list[str]:
 
 def scrub_timestr(time_str: str) -> str:
     """Normalise a time string to H:MM:SS format."""
-    m = re.search(r'(^\d*):(\d*):(\d*)', time_str)
+    m = re.search(r'(\d+):(\d+):(\d+)', time_str)
+    if not m:
+        raise ValueError(f'Cannot parse time string: {time_str!r}')
     hours = str(int(m.group(1)))
     mins = str(int(m.group(2)))
     secs_val = str(int(m.group(3)))
@@ -53,7 +55,9 @@ def scrub_timestr(time_str: str) -> str:
 
 def timestr2pacestr(time_str: str) -> str:
     """Convert H:MM:SS time string to MM:SS pace string."""
-    m = re.search(r'(^\d*):(\d*):(\d*)', time_str)
+    m = re.search(r'(\d+):(\d+):(\d+)', time_str)
+    if not m:
+        raise ValueError(f'Cannot parse time string: {time_str!r}')
     mins = str(int(m.group(2)))
     secs_val = str(int(m.group(3)))
     return f'{mins}:{secs_val.zfill(2)}'
@@ -61,7 +65,9 @@ def timestr2pacestr(time_str: str) -> str:
 
 def scrub_pace(pace_str: str) -> str:
     """Normalise a MM:SS pace string."""
-    m = re.search(r'(^\d*):(\d*)', pace_str)
+    m = re.search(r'(\d+):(\d+)', pace_str)
+    if not m:
+        raise ValueError(f'Cannot parse pace string: {pace_str!r}')
     mins = str(int(m.group(1)))
     secs_val = str(int(m.group(2)))
     return f'{mins}:{secs_val.zfill(2)}'
@@ -493,23 +499,20 @@ def change_workout(conn, cur, id, date: str, location: str, wo_type_id: int, obj
     """Update an existing workout log entry."""
     logger.info('Changing workout ID: %s', id)
     wd = get_workout_calculated_data(date, distance, recovery, easy, threshold, interval, repetition)
-    try:
-        cur.execute(
-            'UPDATE Log SET date=?, location=?, wo_type=?, objective=?, notes=?, dist=?, '
-            'time=?, time_secs=?, pace=?, pace_secs=?, recovery=?, '
-            'recovery_secs=?, easy=?, easy_secs=?, threshold=?, '
-            'threshold_secs=?, interval=?, interval_secs=?, repetition=?, '
-            'repetition_secs=?, p8020=?, jd_int=?, shoeID=?, isodate=? WHERE id=?',
-            (date, location, wo_type_id, objective, notes, float(distance),
-             wd.total_time_str, wd.total_time, wd.pace, wd.secs_pace,
-             recovery, wd.secs_recovery, easy, wd.secs_easy,
-             threshold, wd.secs_threshold, interval, wd.secs_interval,
-             repetition, wd.secs_repetition, wd.p8020, wd.jd_int,
-             shoe_id, wd.isodate_str, id)
-        )
-        conn.commit()
-    except Exception as e:
-        logger.error('Error updating workout id=%s: %s', id, e)
+    cur.execute(
+        'UPDATE Log SET date=?, location=?, wo_type=?, objective=?, notes=?, dist=?, '
+        'time=?, time_secs=?, pace=?, pace_secs=?, recovery=?, '
+        'recovery_secs=?, easy=?, easy_secs=?, threshold=?, '
+        'threshold_secs=?, interval=?, interval_secs=?, repetition=?, '
+        'repetition_secs=?, p8020=?, jd_int=?, shoeID=?, isodate=? WHERE id=?',
+        (date, location, wo_type_id, objective, notes, float(distance),
+         wd.total_time_str, wd.total_time, wd.pace, wd.secs_pace,
+         recovery, wd.secs_recovery, easy, wd.secs_easy,
+         threshold, wd.secs_threshold, interval, wd.secs_interval,
+         repetition, wd.secs_repetition, wd.p8020, wd.jd_int,
+         shoe_id, wd.isodate_str, id)
+    )
+    conn.commit()
 
 
 def add_workout(conn, cur, date: str, location: str, wo_type_id: int, objective: str,
@@ -586,6 +589,11 @@ def _parse_query(query: str) -> list[str]:
         return query.split()
 
 
+def _escape_like(term: str) -> str:
+    """Escape LIKE metacharacters so % and _ are treated as literals (using ! as escape char)."""
+    return term.replace('!', '!!').replace('%', '!%').replace('_', '!_')
+
+
 def _build_word_where(words: list[str], fields: list[str]) -> tuple[str, list]:
     """Build a multi-word AND WHERE clause.
 
@@ -597,8 +605,8 @@ def _build_word_where(words: list[str], fields: list[str]) -> tuple[str, list]:
     clauses = []
     params = []
     for word in words:
-        like = f'%{word}%'
-        clauses.append('(' + ' OR '.join(f'{f} LIKE ?' for f in fields) + ')')
+        like = f'%{_escape_like(word)}%'
+        clauses.append('(' + ' OR '.join(f"{f} LIKE ? ESCAPE '!'" for f in fields) + ')')
         params.extend([like] * len(fields))
     return 'WHERE ' + ' AND '.join(clauses), params
 
@@ -799,6 +807,8 @@ def get_race_info(cur, race_id: int) -> tuple[str, str]:
         (race_id,)
     )
     result = cur.fetchall()
+    if not result:
+        raise ValueError(f'Race id {race_id} not found')
     return result[0][0], result[0][1]
 
 
@@ -867,9 +877,12 @@ def compare_races(cur, event_name1: str, date1: str, event_name2: str, date2: st
         tbody.append([row[0], name_tag, row[2], row[3], row[4], row[5], row[6], percent])
         diffs.append(row[6])
 
-    mean = np.mean(diffs)
-    std = np.std(diffs)
-    summary = f'mean = {mean:.2f}, standard deviation = {std:.2f} [seconds]'
+    if diffs:
+        mean = np.mean(diffs)
+        std = np.std(diffs)
+        summary = f'mean = {mean:.2f}, standard deviation = {std:.2f} [seconds]'
+    else:
+        summary = 'No athletes matched both races with the given criteria'
     thead = ['ID', 'Name', 'Time 1', 'Secs', 'Time 2', 'Secs', 'Diff', '%']
     return intro, thead, tbody, summary
 

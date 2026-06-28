@@ -192,13 +192,16 @@ def change_workout(id):
         errors = _validate_workout(date, distance, recovery, easy, threshold, interval, repetition)
         if not errors:
             cur.execute('SELECT id FROM shoes WHERE shortName = ?', (shoes,))
-            shoe_id = cur.fetchone()[0]
-
+            shoe_row = cur.fetchone()
             cur.execute('SELECT id FROM wo_type WHERE type = ?', (wo_type,))
-            wo_type_id = cur.fetchone()[0]
-
-            sql.change_workout(conn, cur, id, date, location, wo_type_id, objective, notes,
-                               distance, recovery, easy, threshold, interval, repetition, shoe_id)
+            wo_type_row = cur.fetchone()
+            if shoe_row is None:
+                errors.append(f'Shoe "{shoes}" not found.')
+            if wo_type_row is None:
+                errors.append(f'Workout type "{wo_type}" not found.')
+        if not errors:
+            sql.change_workout(conn, cur, id, date, location, wo_type_row[0], objective, notes,
+                               distance, recovery, easy, threshold, interval, repetition, shoe_row[0])
 
             return redirect(url_for('list_workouts'))
 
@@ -371,21 +374,24 @@ def add_workout():
         if not errors:
             logger.debug('shoes=%s', shoes)
             cur.execute('SELECT id FROM shoes WHERE shortName = ?', (shoes,))
-            shoe_id = cur.fetchone()[0]
-
+            shoe_row = cur.fetchone()
             logger.debug('wo_type=%s', wo_type)
             cur.execute('SELECT id FROM wo_type WHERE type = ?', (wo_type,))
-            wo_type_id = cur.fetchone()[0]
-
-            sql.add_workout(conn, cur, date, location, wo_type_id, objective, notes,
-                            distance, recovery, easy, threshold, interval, repetition, shoe_id)
+            wo_type_row = cur.fetchone()
+            if shoe_row is None:
+                errors.append(f'Shoe "{shoes}" not found.')
+            if wo_type_row is None:
+                errors.append(f'Workout type "{wo_type}" not found.')
+        if not errors:
+            sql.add_workout(conn, cur, date, location, wo_type_row[0], objective, notes,
+                            distance, recovery, easy, threshold, interval, repetition, shoe_row[0])
 
             return redirect(url_for('list_workouts'))
 
-        defaults = dict(val_date=date, val_location=location, val_objective=objective,
-                        val_notes=notes, val_distance=distance, val_recovery=recovery,
-                        val_easy=easy, val_threshold=threshold, val_interval=interval,
-                        val_repetition=repetition)
+        defaults = dict(val_date=date, val_location=location, val_wo_type=wo_type,
+                        val_objective=objective, val_notes=notes, val_distance=distance,
+                        val_recovery=recovery, val_easy=easy, val_threshold=threshold,
+                        val_interval=interval, val_repetition=repetition)
 
     return render_template("AddWorkout.html", wo_type_list=wo_type_list,
                            shoe_list=shoe_list, errors=errors, **defaults)
@@ -453,8 +459,12 @@ def compare():
         max_time = request.form['max_time']
         percent = request.form['percent']
 
-        id_1 = int(re.search(r'\d+', re.search(r'\<\d+\>', race1).group()).group())
-        id_2 = int(re.search(r'\d+', re.search(r'\<\d+\>', race2).group()).group())
+        m1 = re.search(r'\<(\d+)\>', race1)
+        m2 = re.search(r'\<(\d+)\>', race2)
+        if not m1 or not m2:
+            return render_template("CompareRaces.html", races=races)
+        id_1 = int(m1.group(1))
+        id_2 = int(m2.group(1))
         event_name1, date1 = sql.get_race_info(cur, id_1)
         event_name2, date2 = sql.get_race_info(cur, id_2)
         intro, thead, tbody, summary = sql.compare_races(

@@ -125,11 +125,17 @@ def find_unlogged(cur, activities: list[dict]) -> list[dict]:
         dist_m = act.get('distance') or 0
         dist_km = dist_m / 1000.0
 
-        already_logged = any(
-            log_date == raw_date and dist_km > 0 and abs(log_dist - dist_km) / dist_km <= 0.10
-            for log_date, log_dist in logged
-            if log_dist
-        )
+        if dist_km > 0:
+            already_logged = any(
+                log_date == raw_date and log_dist
+                and abs(log_dist - dist_km) / dist_km <= 0.10
+                for log_date, log_dist in logged
+            )
+        else:
+            already_logged = any(
+                log_date == raw_date and not log_dist
+                for log_date, log_dist in logged
+            )
         if not already_logged:
             result.append(act)
     return result
@@ -145,7 +151,7 @@ def map_to_form(activity: dict, laps: list[dict]) -> dict:
     total_secs = activity.get('movingDuration') or activity.get('duration') or 0
 
     type_key = (activity.get('activityType') or {}).get('typeKey', '')
-    wo_type = _ACTIVITY_TYPE_MAP.get(type_key, 'Run')
+    wo_type = _ACTIVITY_TYPE_MAP.get(type_key, type_key or 'Run')
 
     notes = format_lap_notes(laps, start_time) if laps else ''
 
